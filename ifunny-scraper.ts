@@ -13,7 +13,12 @@ function parse_resonse_cookies(response: Response) {
       const kv_pairs = value
         .split(/;[ ]*/)
         .map(cookie_str => {
-          return cookie_str.split('=', 2)
+          const index = cookie_str.indexOf('=')
+          if (index === -1) throw new Error(`invalid cookie '${cookie_str}'`)
+          return [
+            cookie_str.slice(0, index),
+            cookie_str.slice(index + 1)
+          ].map(s => s.trim())
         })
       Object.assign(cookies, Object.fromEntries(kv_pairs))
     }
@@ -43,6 +48,10 @@ interface ApiFeedItem {
   smiles: number
   // media url
   url: string
+  video: {
+    mp4: string
+    webm: string
+  }
   creator: ApiFeedCreator
   source: ApiFeedCreator
   tags: string[]
@@ -93,7 +102,13 @@ async function scrape(username: string, output_directory: string) {
     for (const item of feed.items) {
       const feed_item_folder = path.join(feed_folder, item.id)
       const feed_item_info_file = path.join(feed_item_folder, 'info.json')
+      let media_url = item.url
       const feed_item_media_file = path.join(feed_item_folder, 'media' + path.extname(item.url))
+      if (media_url.endsWith('update_tosee_vine_1.gif')) {
+        if (item.video.mp4) media_url = item.video.mp4
+        else if (item.video.webm) media_url = item.video.webm
+        else throw new Error(`no known media file for item ${item.id}`)
+      }
       await Deno.mkdir(feed_item_folder, { recursive: true })
       await Deno.writeTextFile(feed_item_info_file, JSON.stringify(item))
       await grob.fetch_file(item.url, feed_item_media_file, { cache_to_disk: true })

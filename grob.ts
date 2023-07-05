@@ -120,6 +120,21 @@ class Grob {
     }
     return pad`RIF: ${this.stats.request_in_flight} NRM: ${this.stats.fetch_count} CRR: ${this.stats.cached_fetch_count}`
   }
+
+  public static parse_resonse_cookies(response: Response) {
+    const cookies: {[key:string]: string} = {}
+    for (const [key, value] of response.headers.entries()) {
+      if (key === 'set-cookie') {
+        const kv_pairs = value
+          .split(/;[ ]*/)
+          .map(cookie_str => {
+            return cookie_str.split('=', 2)
+          })
+        Object.assign(cookies, Object.fromEntries(kv_pairs))
+      }
+    }
+    return cookies
+  }
 }
 
 export { Grob }
