@@ -1,0 +1,5 @@
+{
+  "tasks": {
+    "develop": "deno run --watch --check --unstable --allow-read --allow-write --allow-net",
+  }
+}
