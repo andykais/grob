@@ -116,3 +116,47 @@ test('grob cache ttl', async t => {
 
   grob.close()
 })
+
+test('grob html', async t => {
+  const grob = new Grob({ download_folder: t.artifacts_folder })
+
+  t.assert.fetch({
+    request: { url: 'https://search.brave.com' },
+    response: {
+      body: `<html>
+      <body>
+        <span class="title">brave search engine</span>
+        <span class="description">it searches for stuff</span>
+
+        <div class='searchresults'>
+          <div class='searchresult'>
+            <a href='https://mysite.com'>My Site</a>
+            <span class='blurb'>My Site contains info</span>
+          </div>
+          <div class='searchresult'>
+            <a href='https://myblog.com'>My Blog</a>
+            <span class='blurb'>My Blog contains blog entries</span>
+          </div>
+        </div>
+
+        <a class='homelink' href="https://brave.com">brave.com</a>
+      </body>
+      </html>`
+    }
+  })
+
+  const index_html = await grob.fetch_html('https://search.brave.com')
+  t.assert.equals(index_html.one('span.title')?.text(), 'brave search engine')
+  t.assert.equals(index_html.one('a.homelink')?.attr('href'), 'https://brave.com')
+  const search_results = index_html.all('.searchresult').map(node => ({
+    link: node.one('a')?.attr('href'),
+    blurb: node.one('span.blurb')?.text(),
+  }))
+  t.assert.equals(search_results, [
+    {link: 'https://mysite.com', blurb: 'My Site contains info'},
+    {link: 'https://myblog.com', blurb: 'My Blog contains blog entries'},
+  ])
+
+
+  grob.close()
+})

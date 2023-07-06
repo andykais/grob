@@ -1,6 +1,7 @@
 import { path, getSetCookies } from './deps.ts'
 import { GrobDatabase } from './database.ts'
 import { RateLimitQueue, type RateLimitQueueConfig } from './queue.ts'
+import { Htmlq } from './htmlq.ts'
 
 
 type Filepath = string
@@ -27,7 +28,6 @@ interface GrobbedResponse {
 class GrobResponse extends Response {
   filepath?: string
 }
-
 
 class Grob {
   public config: GrobConfig
@@ -81,6 +81,16 @@ class Grob {
       {...grob_options, read: true, write: undefined},
     )
     return await response.text()
+  }
+
+  public async fetch_html(url: string, fetch_options?: RequestInit, grob_options?: GrobOptions) {
+    const response = await this.fetch_internal(
+      url,
+      fetch_options,
+      {...grob_options, read: true, write: undefined},
+    )
+    const html_text = await response.text()
+    return new Htmlq(html_text)
   }
 
   public async fetch_file(url: string, fetch_options?: RequestInit, grob_options?: GrobOptions & { filepath?: string }): Promise<{ filepath: string } & GrobResponse> {
@@ -144,14 +154,6 @@ class Grob {
     const grob_response = new GrobResponse(response_body, response)
     grob_response.filepath = write
     return grob_response
-  }
-
-  private complete_request(response: Response) {
-
-  }
-
-  private serialize_request(url: string, fetch_options: RequestInit) {
-
   }
 }
 
