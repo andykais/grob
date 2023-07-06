@@ -1,4 +1,4 @@
-import { path, assert } from './deps.ts'
+import { path, assert, FakeTime } from './deps.ts'
 import { FetchMock, FetchMockNotFound } from './fetch_mock.ts'
 
 
@@ -24,11 +24,27 @@ interface TestContext {
   test_name: string
   artifacts_folder: string
   assert: Asserts
+  fake_time: FakeTimeTool
 }
 
 type TestFunction = (t: TestContext) => Promise<void>
 
 type TestOptions = Pick<Deno.TestDefinition, 'only' | 'ignore'>
+
+class FakeTimeTool {
+  public time: FakeTime | undefined
+  public setup() {
+    this.time = new FakeTime()
+  }
+
+  tick(millis: number) {
+    this.time?.tick(millis)
+  }
+
+  restore() {
+    this.time?.restore()
+  }
+}
 
 function test(test_name: string, fn: TestFunction, options?: TestOptions) {
   const __dirname = path.dirname(path.dirname(path.fromFileUrl(import.meta.url)))
@@ -37,6 +53,7 @@ function test(test_name: string, fn: TestFunction, options?: TestOptions) {
   const test_context: TestContext = {
     test_name,
     artifacts_folder,
+    fake_time: new FakeTimeTool(),
     assert: {
       fetch: fetch_mock.expector,
       fetch_mock_not_found: assert_fetch_mock_not_found,
@@ -55,13 +72,27 @@ function test(test_name: string, fn: TestFunction, options?: TestOptions) {
     fetch_mock.start()
   }
   async function cleanup() {
+    test_context.fake_time.restore()
     fetch_mock.clean()
   }
 
   const test_function = async () => {
+    let errors_occurred_in_test_function = false
     await setup()
-    await fn(test_context)
-    await cleanup()
+    try {
+      await fn(test_context)
+    } catch (e) {
+      errors_occurred_in_test_function = true
+      throw e
+    } finally {
+      try {
+        await cleanup()
+      } catch (e) {
+        if (errors_occurred_in_test_function) {}
+        else throw e
+
+      }
+    }
   }
 
   Deno.test({

@@ -95,7 +95,7 @@ class Grob {
     fetch_options: RequestInit | undefined,
     grob_options: GrobOptionsInternal): Promise<GrobResponse> {
     const cache = grob_options.cache ?? true
-    const expires_on = grob_options.expires_on ?? null
+    const expires_on = grob_options.expires_on
     const read = grob_options.read ?? true
     const write = grob_options.write ?? undefined
 
@@ -137,7 +137,7 @@ class Grob {
     }
 
     if (cache)  {
-      this.db.insert_response(request, response_headers, response_body, response_body_filepath)
+      this.db.insert_response(request, response_headers, response_body, response_body_filepath, { expires_on })
       this.runtime_cache.delete(serialized_request)
     }
 

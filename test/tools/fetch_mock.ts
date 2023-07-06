@@ -79,6 +79,8 @@ class FetchMock {
       method = init.method
     }
 
+    const input_request = new Request(url, { method, headers, ...init })
+
     const identifier = `${method} ${url}`
     if (this.expectations.length === 0) {
       throw new FetchMockNotFound(`Zero expectations set up, request for ${identifier} was rejected`)
@@ -111,9 +113,11 @@ class FetchMock {
         const result = await response
         expectation.live_expectation.status = 'FULFILLED'
         return result
+        expectation.promise_controller.resolve(input_request)
       } else {
         const fetch_response = new Response(response.body, { headers: response.headers, status: response.status_code })
         expectation.live_expectation.status = 'FULFILLED'
+        expectation.promise_controller.resolve(input_request)
         return fetch_response
       }
     }

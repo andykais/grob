@@ -93,3 +93,26 @@ test('grob cookies', async t => {
 
   grob.close()
 })
+
+test('grob cache ttl', async t => {
+  t.fake_time.setup()
+
+  const grob = new Grob({ download_folder: t.artifacts_folder })
+
+  t.assert.fetch({ request: { url: 'https://example.com' }, response: { body: 'foo' } })
+  t.assert.fetch({ request: { url: 'https://example.com' }, response: { body: 'bar' } })
+  const expires_on = new Date()
+  expires_on.setDate(expires_on.getDate() + 1)
+  const response_1 = await grob.fetch_text('https://example.com', {}, { expires_on })
+  t.assert.equals(response_1, 'foo')
+  // second response is cached
+  const response_2 = await grob.fetch_text('https://example.com', {}, { expires_on })
+  t.assert.equals(response_2, 'foo')
+
+  // advancing the time by 25 hours should mean we no longer look at the cached value
+  t.fake_time.tick(25 * 1000 * 60 * 60)
+  const response_3 = await grob.fetch_text('https://example.com')
+  t.assert.equals(response_3, 'bar')
+
+  grob.close()
+})
