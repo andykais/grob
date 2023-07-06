@@ -1,6 +1,6 @@
 import { test } from './tools/test.ts'
-import { path, fs } from './tools/deps.ts'
-import { GrobberRegistry } from '../src/grobber_registry.ts'
+import { path, fs, file_server } from './tools/deps.ts'
+import { GrobberRegistry } from 'https://deno.land/x/grob/mod.ts'
 
 
 test('grobber registry', async t => {
@@ -38,4 +38,38 @@ test('grobber registry', async t => {
   t.assert.equals(image_file, image_file_fixture)
   t.assert.equals(gallery_data.title, `"What do you mean you don't know what that is?!"`)
   t.assert.equals(gallery_data.media.length, 1)
+
+  grobbers.close()
+})
+
+test.only('grobber registry remote grob.yml', async t => {
+  const grobbers = new GrobberRegistry({ download_folder: t.artifacts_folder })
+
+  // lets simulate a remote grob.yml file, which will have a relative program file that needs to be fetched as well
+  const grob_yml_fetch = t.assert.fetch({
+    request: { url: 'https://raw.githubusercontent.com/andykais/grob/imgur.com/grob.yml'},
+    response: { body: await Deno.readTextFile('./examples/imgur.com/grob.yml') }
+  })
+  const program_fetch = t.assert.fetch({
+    request: { url: 'https://raw.githubusercontent.com/andykais/grob/imgur.com/gallery.ts'},
+    response: { body: await Deno.readTextFile('./examples/imgur.com/gallery.ts') }
+  })
+
+  await grobbers.register('https://raw.githubusercontent.com/andykais/grob/imgur.com/grob.yml')
+  t.assert.equals(grob_yml_fetch.status, 'FULFILLED')
+  t.assert.equals(program_fetch.status, 'FULFILLED')
+
+  t.assert.fetch({
+    request: { url: 'https://imgur.com/gallery/NTwmL' },
+    response: { body: await Deno.readTextFile('./test/fixtures/imgur.com/gallery.html') }
+  })
+
+  t.assert.fetch({
+    request: { url: 'https://i.imgur.com/ppUDAuk.jpeg' },
+    response: { body: await Deno.readFile('./test/fixtures/i.imgur.com/ppUDAuk.jpeg') }
+  })
+
+  await grobbers.start('https://imgur.com/gallery/NTwmL')
+
+  grobbers.close()
 })

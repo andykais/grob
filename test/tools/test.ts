@@ -1,6 +1,7 @@
-import { path, assert, FakeTime } from './deps.ts'
+import { path, assert, FakeTime, serve, file_server } from './deps.ts'
 import { FetchMock, FetchMockNotFound } from './fetch_mock.ts'
 
+const __dirname = path.dirname(path.dirname(path.fromFileUrl(import.meta.url)))
 
 function assert_fetch_mock_not_found(grob_fn: () => Promise<any>) {
   assert.assertRejects(grob_fn, FetchMockNotFound)
@@ -47,7 +48,6 @@ class FakeTimeTool {
 }
 
 function test(test_name: string, fn: TestFunction, options?: TestOptions) {
-  const __dirname = path.dirname(path.dirname(path.fromFileUrl(import.meta.url)))
   const artifacts_folder = path.join(__dirname, 'artifacts', test_name)
   const fetch_mock = new FetchMock()
   const test_context: TestContext = {

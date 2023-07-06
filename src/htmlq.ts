@@ -27,7 +27,6 @@ class Htmlq {
     }
     const text_content = DomUtils.textContent(this.document)
     if (text_content) return text_content
-      // console.log(this.document)
     const inner_text = DomUtils.innerText(this.document)
     return inner_text
   }

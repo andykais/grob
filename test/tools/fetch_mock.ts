@@ -121,7 +121,9 @@ class FetchMock {
         return fetch_response
       }
     }
-    throw new FetchMockNotFound(`No expectation found for ${identifier} out of ${this.expectations.length} set up expectations`)
+    // const serialized_expectations = this.expectations.map(e => `  ${e.instructions.request.method} ${e.instructions.request.url}${e.instructions.request.body ? ' body: "..."' : ''}${headers ? ` headers: ${headers}` : ''}`).join('\n')
+    const serialized_expectations = this.expectations.map(e => '  ' + JSON.stringify(e.instructions.request)).join('\n')
+    throw new FetchMockNotFound(`No expectation found for ${identifier} out of ${this.expectations.length} set up expectations:\n${serialized_expectations}`)
   }
 }
 

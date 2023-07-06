@@ -33,13 +33,17 @@ interface CompiledGrobber {
 class GrobberRegistry {
   public download_folder: string
   private registry: CompiledGrobber[]
+  private registry_grob: Grob
 
   public constructor(config?: GrobberRegistryConfig) {
     this.download_folder = config?.download_folder ?? Deno.cwd()
     this.registry = []
+    const registry_grob_folder = path.join(this.download_folder, '.registry')
+    this.registry_grob = new Grob({ download_folder: registry_grob_folder })
   }
 
   public async register(registration: GrobberRegistration) {
+    // TODO mkdir?
     let registration_type: 'object' | 'url' | 'filepath'
     let grobber_definition: GrobberDefinition
 
@@ -48,7 +52,9 @@ class GrobberRegistry {
       grobber_definition = registration
     } else if (this.is_valid_url(registration)) {
       registration_type = 'url'
-      throw new Error('unimplemented')
+      // TODO dogfood grob, rather than fetching every time
+      const content = await this.registry_grob.fetch_text(registration)
+      grobber_definition = yaml.parse(content) as GrobberDefinition
     } else {
       const content = await Deno.readTextFile(registration)
       registration_type = 'filepath'
@@ -60,13 +66,19 @@ class GrobberRegistry {
     if (typeof grobber_definition.main === 'function') {
       program = grobber_definition.main
     } else if (this.is_valid_url(grobber_definition.main)) {
-      throw new Error('unimplemented')
+      const filepath = await this.registry_grob.fetch_file(grobber_definition.main)
+      program = (await import(filepath)).default as GrobEntrypoint
     } else {
       if (registration_type === 'object') {
         // any filepath here must be relative to the cwd
         program = (await import(grobber_definition.main)).default as GrobEntrypoint
-      // } else if (registration_type === 'url') {
-      //   throw new Error('unimplemented')
+      } else if (registration_type === 'url') {
+        const registration_url = new URL(registration as string)
+
+        const resolved_path = path.join(path.dirname(registration_url.pathname), grobber_definition.main)
+        const resolved_url = registration_url.origin + resolved_path
+        const filepath = await this.registry_grob.fetch_file(resolved_url)
+        program = (await import(filepath)).default as GrobEntrypoint
       } else if (registration_type === 'filepath') {
         // a filepath here must be relative to the grob.yml folder
         const definition_folder = path.dirname(registration as string)
@@ -102,6 +114,10 @@ class GrobberRegistry {
     }
   }
 
+  public close() {
+    this.registry_grob.close()
+  }
+
   private async launch_grobber(input: string, grobber: CompiledGrobber) {
     const sanitized_folder_name = input.replaceAll('/', '_')
     const download_folder = path.join(this.download_folder, grobber.definition.name, sanitized_folder_name)
@@ -113,27 +129,6 @@ class GrobberRegistry {
       throw e
     } finally {
       grob.close()
-    }
-  }
-
-  private async resolve_reference<T extends object>(ref: T | FilepathString | URLString, parser: (filepath: FilepathString) => Promise<T>) {
-    let resolved_ref: T
-    if (typeof ref === 'object') {
-      resolved_ref = ref
-      return resolved_ref
-    } else {
-      try {
-        // try reading the ref as a url first
-        const ref_url = new URL(ref)
-        throw new Error('unimplemented')
-      } catch (e) {
-        if (e instanceof TypeError) {
-          // this must be a relative path
-          resolved_ref = await parser(ref)
-          return resolved_ref
-        }
-      }
-      throw new Error(`unknown reference type ${ref}. Accepted types are javascript objects, filepaths and urls`)
     }
   }
 }
