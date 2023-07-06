@@ -1,0 +1,11 @@
+name: 'imgur_gallery'
+match: 'https://imgur.com/gallery/.+'
+permissions:
+  - 'imgur.com'
+  - 'i.imgur.com'
+
+throttle:
+  rate_per_second: 2
+  concurrent_limit: 10
+
+main: './gallery.ts'

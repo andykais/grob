@@ -93,11 +93,12 @@ class Grob {
     return new Htmlq(html_text)
   }
 
-  public async fetch_file(url: string, fetch_options?: RequestInit, grob_options?: GrobOptions & { filepath?: string }): Promise<{ filepath: string } & GrobResponse> {
+  public async fetch_file(url: string, fetch_options?: RequestInit, grob_options?: GrobOptions & { filepath?: string }): Promise<string> {
     const generated_filepath = path.join(this.download_folder, crypto.randomUUID(), path.basename(url))
     const filepath = grob_options?.filepath ?? generated_filepath
     await Deno.mkdir(path.dirname(filepath))
-    return this.fetch_internal(url, fetch_options, {read: false, write: filepath}) as Promise<{ filepath: string } & GrobResponse>
+    const response = await this.fetch_internal(url, fetch_options, {read: false, write: filepath}) as { filepath: string } & GrobResponse
+    return response.filepath
   }
 
   private async fetch_internal<T>(

@@ -25,7 +25,11 @@ class Htmlq {
     if (Array.isArray(this.document)) {
       throw new Error('Cannot look up find text on an array of nodes')
     }
-    return DomUtils.textContent(this.document)
+    const text_content = DomUtils.textContent(this.document)
+    if (text_content) return text_content
+      // console.log(this.document)
+    const inner_text = DomUtils.innerText(this.document)
+    return inner_text
   }
 
   public one(css_selector: string) {

@@ -58,12 +58,12 @@ test('grob file cache', async t => {
     }
   })
 
-  const response_1 = await grob.fetch_file('https://search.brave.com/index.html')
-  await t.assert.file_contents(response_1.filepath, 'save to file please')
-  t.assert.equals(path.basename(response_1.filepath), 'index.html')
+  const filepath_1 = await grob.fetch_file('https://search.brave.com/index.html')
+  await t.assert.file_contents(filepath_1, 'save to file please')
+  t.assert.equals(path.basename(filepath_1), 'index.html')
   // this response is cached
-  const response_2 = await grob.fetch_file('https://search.brave.com/index.html')
-  await t.assert.file_contents(response_2.filepath, 'save to file please')
+  const filepath_2 = await grob.fetch_file('https://search.brave.com/index.html')
+  await t.assert.file_contents(filepath_2, 'save to file please')
 
   grob.close()
 })
