@@ -1,4 +1,5 @@
 import { mock } from './deps.ts'
+import { PromiseController } from './promise_controller.ts'
 
 interface MockFetchInstructions {
   request: {
@@ -11,30 +12,23 @@ interface MockFetchInstructions {
     status_code?: number
     body?: any
     headers?: Record<string, string>
-  }
+  } | Promise<Response>
+}
+
+interface LiveExpectation {
+  status: 'UNFULFILLED' | 'RESPONDING' | 'FULFILLED'
+  request: Promise<Request>
 }
 
 interface MockExpectation {
   promise_controller: PromiseController<Request>
   instructions: MockFetchInstructions
+  live_expectation: LiveExpectation
 }
 
 
 class FetchMockNotFound extends Error {}
 
-
-class PromiseController<T> {
-  public promise: Promise<T>
-  public resolve!: (value: T) => void
-  public reject!: (error: Error) => void
-  public constructor() {
-    this.promise = new Promise((resolve, reject) => {
-      this.resolve = resolve
-      this.reject = reject
-    })
-
-  }
-}
 
 class FetchMock {
   private fetch_stub: mock.Stub<Window & typeof globalThis, Parameters<typeof fetch>> | undefined
@@ -56,17 +50,22 @@ class FetchMock {
     this.fetch_stub.restore()
   }
 
-  public expector = (instructions: MockFetchInstructions): Promise<Request> => {
+  public expector = (instructions: MockFetchInstructions): LiveExpectation => {
     const promise_controller = new PromiseController<Request>()
     // push to the front of the array, so that when we respond, we look at the newest mocks first
-    this.expectations.unshift({
+    const live_expectation: LiveExpectation = {
+      status: 'UNFULFILLED',
+      request: promise_controller.promise
+    }
+    this.expectations.push({
+      promise_controller,
       instructions,
-      promise_controller
+      live_expectation,
     })
-    return promise_controller.promise
+    return live_expectation
   }
 
-  private responder = (input: string | Request | URL, init?: RequestInit) => {
+  private responder = async (input: string | Request | URL, init?: RequestInit) => {
 
     let url = input.toString()
     let method = 'GET'
@@ -82,8 +81,9 @@ class FetchMock {
 
     const identifier = `${method} ${url}`
     if (this.expectations.length === 0) {
-      throw new FetchMockNotFound(`No expectations set up, request for ${identifier} was rejected`)
+      throw new FetchMockNotFound(`Zero expectations set up, request for ${identifier} was rejected`)
     }
+
 
     for (const [index, expectation] of this.expectations.entries()) {
       const { request, response } = expectation.instructions
@@ -103,9 +103,19 @@ class FetchMock {
       if (request.body) {
         throw new Error('unimplemented')
       }
-      const fetch_response = new Response(response.body, { headers: response.headers, status: response.status_code })
-      this.expectations.splice(index)
-      return Promise.resolve(fetch_response)
+
+      this.expectations.splice(index, 1)
+
+      if (response instanceof Promise) {
+        expectation.live_expectation.status = 'RESPONDING'
+        const result = await response
+        expectation.live_expectation.status = 'FULFILLED'
+        return result
+      } else {
+        const fetch_response = new Response(response.body, { headers: response.headers, status: response.status_code })
+        expectation.live_expectation.status = 'FULFILLED'
+        return fetch_response
+      }
     }
     throw new FetchMockNotFound(`No expectation found for ${identifier} out of ${this.expectations.length} set up expectations`)
   }

@@ -1,8 +1,8 @@
 {
   "tasks": {
     "develop": "deno run --watch --check --unstable --allow-read --allow-write --allow-net",
-    "test": "deno test --check --unstable --allow-read --allow-write --allow-net test/grob.test.ts",
-    "test:watch": "deno test --watch --check --unstable --allow-read --allow-write --allow-net test/grob.test.ts",
+    "test": "deno test --check --unstable --allow-read --allow-write --allow-net test/*.test.ts",
+    "test:watch": "deno test --watch --check --unstable --allow-read --allow-write --allow-net test/*.test.ts",
     "lint": "deno lint",
   }
 }

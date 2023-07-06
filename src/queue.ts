@@ -1,6 +1,6 @@
 interface RateLimitQueueConfig {
-  rate_per_second: number
-  concurrent_limit: number
+  rate_per_second?: number
+  concurrent_limit?: number
   debug?: boolean
 }
 
@@ -37,22 +37,36 @@ class PromiseController<T> {
 }
 
 class RateLimitQueue<T> {
-  public config: RateLimitQueueConfig
+  private config: RateLimitQueueConfig
+  private concurrent_limit: number
+  private rate_per_second: number
   private queue: TaskObject<T>[]
   private active_tasks: number
   private enqueued_task_count: number
   private last_enqueue: TimeRateData
   private start_time: number
   private next_scheduled_second: number
+  private interval_id: number
 
-  public constructor(config: RateLimitQueueConfig = passthrough_config) {
-    this.config = {...passthrough_config, ...config}
+  public constructor(config?: RateLimitQueueConfig) {
+    this.config = config ?? {}
+    this.concurrent_limit = config?.concurrent_limit ?? Infinity
+    this.rate_per_second = config?.rate_per_second ?? Infinity
     this.queue = []
     this.active_tasks = 0
     this.enqueued_task_count = 0
     this.last_enqueue = { second: 0, rate: 0 }
     this.start_time = performance.now()
     this.next_scheduled_second = 0
+    // for rate limited tasks, we run the scheduler once a second
+    this.interval_id = setInterval(this.schedule, 1000)
+  }
+
+  public close() {
+    if (this.queue.length) {
+      throw new Error(`queue was stopped with ${this.queue.length} remaining tasks`)
+    }
+    clearInterval(this.interval_id)
   }
 
   public async enqueue(task: Task<T>): Promise<T> {
@@ -69,13 +83,13 @@ class RateLimitQueue<T> {
     return promise_controller.promise
   }
 
-  private schedule() {
+  private schedule = () => {
     if (this.queue.length === 0) return
 
     const current_second = this.current_second()
 
-    const acceptable_concurrency = this.active_tasks < this.config.concurrent_limit
-    const acceptable_rate = this.last_enqueue.second !== current_second || this.last_enqueue.rate < this.config.rate_per_second
+    const acceptable_concurrency = this.active_tasks < this.concurrent_limit
+    const acceptable_rate = this.last_enqueue.second !== current_second || this.last_enqueue.rate < this.rate_per_second
     if (acceptable_concurrency && acceptable_rate) {
       const task_object = this.queue.shift()
       if (!task_object) return
@@ -101,15 +115,15 @@ class RateLimitQueue<T> {
           this.schedule()
         })
     }
-    if (!acceptable_rate && this.queue.length > 0) {
-      const next_scheduled_second = current_second + 1
-      if (this.next_scheduled_second < next_scheduled_second) {
-        this.next_scheduled_second = next_scheduled_second
-        setTimeout(() => {
-          this.schedule()
-        }, 1000)
-      }
-    }
+    // if (!acceptable_rate && this.queue.length > 0) {
+    //   const next_scheduled_second = current_second + 1
+    //   if (this.next_scheduled_second < next_scheduled_second) {
+    //     this.next_scheduled_second = next_scheduled_second
+    //     setTimeout(() => {
+    //       this.schedule()
+    //     }, 1000)
+    //   }
+    // }
   }
 
   private current_second() {

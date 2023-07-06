@@ -46,8 +46,8 @@ class Grob {
   }
 
   public close() {
+    this.queue.close()
     this.db.close()
-    // TODO this.queue.close() // add a queue loop for rate limit system
   }
 
   public async fetch_headers(url: string, fetch_options?: RequestInit, grob_options?: GrobOptions) {
@@ -99,6 +99,7 @@ class Grob {
     const read = grob_options.read ?? true
     const write = grob_options.write ?? undefined
 
+
     const request = { url, headers: fetch_options?.headers, body: fetch_options?.body }
     const serialized_request = JSON.stringify(request)
 
@@ -113,7 +114,7 @@ class Grob {
       }
     }
 
-    const fetch_promise = fetch(url, { headers: request.headers, body: request.body })
+    const fetch_promise = this.queue.enqueue(() => fetch(url, { headers: request.headers, body: request.body }))
     this.runtime_cache.set(serialized_request, fetch_promise)
 
     const response = await fetch_promise
