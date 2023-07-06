@@ -1,4 +1,4 @@
-import { DB, type PreparedQuery } from 'https://deno.land/x/sqlite@v3.7.2/mod.ts';
+import { sqlite } from './deps.ts';
 import { GrobResponse } from './grob.ts'
 
 
@@ -31,15 +31,15 @@ interface GrobParsedResponseInternal {
 class GrobDatabase {
   public download_folder: string
   public database_filepath: string
-  private db: DB
+  private db: sqlite.DB
 
-  private insert_request_stmt: PreparedQuery
-  private select_request_stmt: PreparedQuery
+  private insert_request_stmt: sqlite.PreparedQuery
+  private select_request_stmt: sqlite.PreparedQuery
 
   public constructor(download_folder: string) {
     this.download_folder = download_folder
     this.database_filepath = `${download_folder}/requests.db`
-    this.db = new DB(this.database_filepath)
+    this.db = new sqlite.DB(this.database_filepath)
     this.db.query(`
       CREATE TABLE IF NOT EXISTS requests (
         id INTEGER NOT NULL PRIMARY KEY,

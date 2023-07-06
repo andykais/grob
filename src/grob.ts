@@ -1,5 +1,4 @@
-import * as path from 'https://deno.land/std@0.192.0/path/mod.ts'
-import { getSetCookies } from './deps.ts'
+import { path, getSetCookies } from './deps.ts'
 import { GrobDatabase } from './database.ts'
 import { RateLimitQueue, type RateLimitQueueConfig } from './queue.ts'
 
