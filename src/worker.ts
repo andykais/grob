@@ -38,9 +38,6 @@ interface WorkerMessageFetch {
   headers: HeadersInit | undefined
 }
 
-interface WorkerMessageReady {
-  command: 'ready'
-}
 interface WorkerMessageError {
   command: 'error'
   type: 'permission_denied'
@@ -51,7 +48,7 @@ interface WorkerMessageComplete {
   command: 'complete'
 }
 
-type WorkerMessage = WorkerMessageFetch | WorkerMessageReady | WorkerMessageComplete | WorkerMessageError
+type WorkerMessage = WorkerMessageFetch | WorkerMessageComplete | WorkerMessageError
 
 
 class GrobberRegistryWorker {

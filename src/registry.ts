@@ -72,7 +72,7 @@ class GrobberRegistry {
     } else {
       registration_type = 'filepath'
       registration_identifier = registration
-      local_grobber_definition_filepath = path.resolve(registration)
+      local_grobber_definition_filepath = path.isAbsolute(registration) ? registration : path.join(Deno.cwd(), registration)
     }
     const content = await Deno.readTextFile(local_grobber_definition_filepath)
     grobber_definition = yaml.parse(content) as GrobberDefinition
@@ -105,7 +105,8 @@ class GrobberRegistry {
       } else if (registration_type === 'filepath') {
         // a filepath here must be relative to the grob.yml folder
         const definition_folder = path.dirname(registration as string)
-        local_grobber_program_filepath = path.resolve(definition_folder, grobber_definition.main)
+        const parent_folder = path.isAbsolute(definition_folder) ? definition_folder : path.join(Deno.cwd(), definition_folder)
+        local_grobber_program_filepath = path.join(parent_folder, grobber_definition.main)
         program = (await import(local_grobber_program_filepath)).default as GrobEntrypoint
       } else {
         throw new Error(`unexpected registration type ${registration_type}`)

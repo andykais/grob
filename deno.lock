@@ -150,6 +150,7 @@
     "https://deno.land/std@0.193.0/streams/byte_slice_stream.ts": "225d57263a34325d7c96cb3dafeb478eec0e6fd05cd0458d678752eadd132bb4",
     "https://deno.land/std@0.193.0/testing/_time.ts": "fecaf6fc7277d240d11b0de2e93b1c93ebbb4a3a61f0cb0b1741f66f69a4d22b",
     "https://deno.land/std@0.193.0/testing/time.ts": "a46fbfd61e6f011f15a63c8078399b1f7fa848d2c0c526f253b0535f5c3e7f45",
+    "https://deno.land/std@0.193.0/types.d.ts": "dbaeb2c4d7c526db9828fc8df89d8aecf53b9ced72e0c4568f97ddd8cda616a4",
     "https://deno.land/std@0.193.0/version.ts": "90fe73cb597df8dd8780ea1b899a9231b991b83751bb104b3c8aa2c954f49dd7",
     "https://deno.land/std@0.193.0/yaml/_dumper/dumper.ts": "a2c937a53a2b0473125a31a330334cc3f30e98fd82f8143bc225583d1260890b",
     "https://deno.land/std@0.193.0/yaml/_dumper/dumper_state.ts": "f0d0673ceea288334061ca34b63954c2bb5feb5bf6de5e4cfe9a942cdf6e5efe",
