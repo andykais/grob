@@ -1,4 +1,4 @@
-import { Grob } from 'https://deno.land/x/grob/mod.ts'
+import { Grob } from '../mod.ts'
 import { PromiseController } from './tools/promise_controller.ts'
 import { test } from './tools/test.ts'
 

@@ -1,10 +1,7 @@
-import { sqlite } from './deps.ts';
+import { sqlite, datetime } from './deps.ts';
 import { GrobResponse } from './grob.ts'
 
-
-// type ValueOf<T> = T[keyof T];
-// type TableRow = { id: number; name: string }
-// type Statement<TR> = PreparedQuery<ValueOf<TR>, TR>
+const datetime_format_string = 'yyyy/MM/dd HH:mm'
 
 interface RequestCreate {
   url: string
@@ -64,7 +61,7 @@ class GrobDatabase {
 
   public select_request(request: RequestCreate): GrobResponse | undefined {
     const serialized_request = JSON.stringify(request)
-    const now = new Date().toLocaleString()
+    const now = datetime.format(new Date(), datetime_format_string)
     const ret = this.select_request_stmt.firstEntry({ request: serialized_request, now }) as RequestsTR | undefined
     if (ret) {
       const response = new GrobResponse(ret.response_body, {
@@ -78,7 +75,7 @@ class GrobDatabase {
   public insert_response(request: RequestCreate, response_headers: Headers, response_body: any, response_body_filepath: string | undefined, cache_control: { expires_on?: Date}) {
     const serialized_request = JSON.stringify(request)
     const serialized_headers = JSON.stringify(Object.fromEntries(response_headers.entries()))
-    const expires_on = cache_control?.expires_on ? cache_control.expires_on.toLocaleString() : null
+    const expires_on = cache_control?.expires_on ? datetime.format(cache_control.expires_on, datetime_format_string) : null
     this.insert_request_stmt.execute({ request: serialized_request, response_headers: serialized_headers, response_body, response_body_filepath, expires_on })
   }
 

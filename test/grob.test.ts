@@ -1,4 +1,4 @@
-import { Grob } from 'https://deno.land/x/grob/mod.ts'
+import { Grob } from '../mod.ts'
 import { path } from './tools/deps.ts'
 import { test } from './tools/test.ts'
 

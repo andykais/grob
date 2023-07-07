@@ -21,9 +21,9 @@ interface Asserts {
   file_contents: typeof assert_file_contents
 }
 
-interface TestContext {
-  test_name: string
+interface TestContext extends Deno.TestContext {
   artifacts_folder: string
+  fixtures_folder: string
   assert: Asserts
   fake_time: FakeTimeTool
 }
@@ -49,19 +49,9 @@ class FakeTimeTool {
 
 function test(test_name: string, fn: TestFunction, options?: TestOptions) {
   const artifacts_folder = path.join(__dirname, 'artifacts', test_name)
+  const fixtures_folder = path.join(__dirname, 'fixtures')
   const fetch_mock = new FetchMock()
-  const test_context: TestContext = {
-    test_name,
-    artifacts_folder,
-    fake_time: new FakeTimeTool(),
-    assert: {
-      fetch: fetch_mock.expector,
-      fetch_mock_not_found: assert_fetch_mock_not_found,
-      rejects: assert.assertRejects,
-      equals: assert.assertEquals,
-      file_contents: assert_file_contents,
-    }
-  }
+  const fake_time = new FakeTimeTool()
 
   async function setup() {
     await Deno.remove(artifacts_folder, { recursive: true }).catch(e => {
@@ -71,12 +61,26 @@ function test(test_name: string, fn: TestFunction, options?: TestOptions) {
     await Deno.mkdir(artifacts_folder, { recursive: true })
     fetch_mock.start()
   }
-  async function cleanup() {
-    test_context.fake_time.restore()
+  function cleanup() {
+    fake_time.restore()
     fetch_mock.clean()
   }
 
-  const test_function = async () => {
+  const test_function = async (deno_test_context: Deno.TestContext) => {
+    const test_context: TestContext = {
+      ...deno_test_context,
+      artifacts_folder,
+      fixtures_folder,
+      fake_time,
+      assert: {
+        fetch: fetch_mock.expector,
+        fetch_mock_not_found: assert_fetch_mock_not_found,
+        rejects: assert.assertRejects,
+        equals: assert.assertEquals,
+        file_contents: assert_file_contents,
+      }
+    }
+
     let errors_occurred_in_test_function = false
     await setup()
     try {
@@ -86,7 +90,7 @@ function test(test_name: string, fn: TestFunction, options?: TestOptions) {
       throw e
     } finally {
       try {
-        await cleanup()
+        cleanup()
       } catch (e) {
         if (errors_occurred_in_test_function) {}
         else throw e

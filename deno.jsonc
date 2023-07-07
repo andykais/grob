@@ -1,8 +1,8 @@
 {
   "tasks": {
     "develop": "deno run --watch --check --unstable --allow-read --allow-write --allow-net",
-    "test": "deno test --check --unstable --allow-read --allow-write --allow-net test/*.test.ts",
-    "test:watch": "deno test --watch --check --unstable --import-map  test/tools/import_map.json --allow-read --allow-write --allow-net",
+    "test": "deno test --check --import-map test/tools/import_map.json --allow-read --allow-write --allow-net test/*.test.ts",
+    "test:watch": "deno test --watch --check --trace-ops --import-map test/tools/import_map.json --allow-read --allow-write --allow-net",
     "lint": "deno lint",
   }
 }

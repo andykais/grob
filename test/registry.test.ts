@@ -1,6 +1,6 @@
 import { test } from './tools/test.ts'
 import { path, fs, file_server } from './tools/deps.ts'
-import { GrobberRegistry } from 'https://deno.land/x/grob/mod.ts'
+import { GrobberRegistry, type GrobberDefinition } from '../mod.ts'
 
 
 test('grobber registry', async t => {
@@ -9,10 +9,10 @@ test('grobber registry', async t => {
   await grobbers.register('./examples/imgur.com/grob.yml')
   // await grobbers.register('https://git.com/examples/imgur.com/grob.yml')
 
-  const image_file_fixture = await Deno.readFile('./test/fixtures/i.imgur.com/ppUDAuk.jpeg')
+  const image_file_fixture = await Deno.readFile(path.join(t.fixtures_folder, '/files/i.imgur.com/ppUDAuk.jpeg'))
   t.assert.fetch({
     request: { url: 'https://imgur.com/gallery/NTwmL' },
-    response: { body: await Deno.readTextFile('./test/fixtures/imgur.com/gallery.html') }
+    response: { body: await Deno.readTextFile(path.join(t.fixtures_folder, '/files/imgur.com/gallery.html')) }
   })
 
   t.assert.fetch({
@@ -42,7 +42,7 @@ test('grobber registry', async t => {
   grobbers.close()
 })
 
-test.only('grobber registry remote grob.yml', async t => {
+test('grobber registry remote grob.yml', async t => {
   const grobbers = new GrobberRegistry({ download_folder: t.artifacts_folder })
 
   // lets simulate a remote grob.yml file, which will have a relative program file that needs to be fetched as well
@@ -61,15 +61,26 @@ test.only('grobber registry remote grob.yml', async t => {
 
   t.assert.fetch({
     request: { url: 'https://imgur.com/gallery/NTwmL' },
-    response: { body: await Deno.readTextFile('./test/fixtures/imgur.com/gallery.html') }
+    response: { body: await Deno.readTextFile(path.join(t.fixtures_folder, '/files/imgur.com/gallery.html')) }
   })
 
   t.assert.fetch({
     request: { url: 'https://i.imgur.com/ppUDAuk.jpeg' },
-    response: { body: await Deno.readFile('./test/fixtures/i.imgur.com/ppUDAuk.jpeg') }
+    response: { body: await Deno.readFile(path.join(t.fixtures_folder, '/files/i.imgur.com/ppUDAuk.jpeg')) }
   })
 
   await grobbers.start('https://imgur.com/gallery/NTwmL')
+
+  // TODO add subtests for cached registry, errored uncached registry with different names
+  // console.log(t.name)
+
+  // grabbing an existing grob.yml should be cached by default
+  await grobbers.register('https://raw.githubusercontent.com/andykais/grob/imgur.com/grob.yml')
+
+  // no two grob.yml files can share the same name
+  t.assert.rejects(() =>
+    grobbers.register(path.join(t.fixtures_folder, 'imgur_duplicate', 'grob.yml'))
+  )
 
   grobbers.close()
 })
