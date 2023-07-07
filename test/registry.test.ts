@@ -6,7 +6,8 @@ import { GrobberRegistry, type GrobberDefinition } from '../mod.ts'
 test('grobber registry', async t => {
   const grobbers = new GrobberRegistry({ download_folder: t.artifacts_folder })
 
-  await grobbers.register('./examples/imgur.com/grob.yml')
+  // await grobbers.register('./examples/imgur.com/grob.yml')
+  await grobbers.register('../grob/examples/imgur.com/grob.yml')
   // await grobbers.register('https://git.com/examples/imgur.com/grob.yml')
 
   const image_file_fixture = await Deno.readFile(path.join(t.fixtures_folder, '/files/i.imgur.com/ppUDAuk.jpeg'))

@@ -62,6 +62,7 @@ class Grob {
 
   public async fetch_cookies(url: string, fetch_options?: RequestInit, grob_options?: GrobOptions) {
     const response_headers = await this.fetch_headers(url, fetch_options, grob_options)
+    // TODO use deno 1.35.0 Headers.getSetCookies()
     return getSetCookies(response_headers)
   }
 
@@ -96,7 +97,6 @@ class Grob {
   public async fetch_file(url: string, fetch_options?: RequestInit, grob_options?: GrobOptions & { filepath?: string }): Promise<string> {
     const generated_filepath = path.join(this.download_folder, crypto.randomUUID(), path.basename(url))
     const filepath = grob_options?.filepath ?? generated_filepath
-    await Deno.mkdir(path.dirname(filepath))
     const response = await this.fetch_internal(url, fetch_options, {read: false, write: filepath}) as { filepath: string } & GrobResponse
     return response.filepath
   }
@@ -139,6 +139,7 @@ class Grob {
       response_body = await response.text()
     } else if (write) {
       response_body_filepath = write
+      await Deno.mkdir(path.dirname(response_body_filepath))
       const response_body_filepath_temp = `${response_body_filepath}.down`
       // we _may_ error here on a file name clash, but thats more of a user error than anything
       // potentially we should make filenames fully generated (with something like write: true) to make this more ergonomic

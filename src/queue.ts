@@ -1,3 +1,6 @@
+import { PromiseController } from './promise_controller.ts'
+
+
 interface RateLimitQueueConfig {
   rate_per_second?: number
   concurrent_limit?: number
@@ -20,21 +23,6 @@ interface TimeRateData {
   rate: number
 }
 
-
-class PromiseController<T> {
-  promise: Promise<T>
-  resolve!: (value: T) => void
-  reject!: (error: Error) => void
-
-  public constructor() {
-    this.promise = new Promise((resolve, reject) => {
-      this.resolve = resolve
-      this.resolve.bind(this)
-      this.reject = reject
-      this.reject.bind(this)
-    })
-  }
-}
 
 class RateLimitQueue<T> {
   private config: RateLimitQueueConfig
