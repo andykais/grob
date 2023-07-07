@@ -12,6 +12,7 @@ import { GrobberRegistry, type GrobberRegistryConfig, type CompiledGrobber, type
 
 interface MasterMessageLaunch {
   command: 'launch'
+  fetch_piping: boolean
   grobber_definition: GrobberDefinition
   grobber_folder: string
   grobber_name: string
@@ -37,11 +38,20 @@ interface WorkerMessageFetch {
   headers: HeadersInit | undefined
 }
 
+interface WorkerMessageReady {
+  command: 'ready'
+}
+interface WorkerMessageError {
+  command: 'error'
+  type: 'permission_denied'
+  message: string
+  stacktrace?: string
+}
 interface WorkerMessageComplete {
   command: 'complete'
 }
 
-type WorkerMessage = WorkerMessageFetch | WorkerMessageComplete
+type WorkerMessage = WorkerMessageFetch | WorkerMessageReady | WorkerMessageComplete | WorkerMessageError
 
 
 class GrobberRegistryWorker {
@@ -57,32 +67,52 @@ function send_message(message: WorkerMessage) {
   worker_self.postMessage(message)
 }
 
+function pipe_fetch() {
+  self.fetch = (input: string | URL | Request, init?: RequestInit) => {
+    const fetch_id = crypto.randomUUID()
+    if (input instanceof Request) {
+      throw new Error('unimplemented')
+    }
+    send_message({
+      command: 'fetch',
+      fetch_id,
+      url: input.toString(),
+      method: init?.method ?? 'GET',
+      body: init?.body,
+      headers: init?.headers
+    })
+    const promise_controller = new PromiseController<Response>()
+    fetch_response_controllers[fetch_id] = promise_controller
+    return promise_controller.promise
+  }
+}
+
 const fetch_response_controllers: Record<string, PromiseController<Response>> = {}
 worker_self.onmessage = async (e: MessageEvent<MasterMessage>) => {
   switch(e.data.command) {
     case 'launch': {
-      self.fetch = (input: string | URL | Request, init?: RequestInit) => {
-        const fetch_id = crypto.randomUUID()
-        if (input instanceof Request) {
-          throw new Error('unimplemented')
-        }
-        send_message({
-          command: 'fetch',
-          fetch_id,
-          url: input.toString(),
-          method: init?.method ?? 'GET',
-          body: init?.body,
-          headers: init?.headers
-        })
-        const promise_controller = new PromiseController<Response>()
-        fetch_response_controllers[fetch_id] = promise_controller
-        return promise_controller.promise
+      if (e.data.fetch_piping) {
+        pipe_fetch()
       }
       const { grobber_definition, grobber_folder, main_filepath, input } = e.data
       const program = (await import(main_filepath)).default
       const grob = new Grob({ download_folder: grobber_folder, throttle: grobber_definition.throttle })
 
-      await program(grob, input)
+      try {
+        await program(grob, input)
+      } catch (e) {
+        if (e instanceof Deno.errors.PermissionDenied) {
+          send_message({
+            command: 'error',
+            type: 'permission_denied',
+            message: e.message,
+            stacktrace: e.stack
+          })
+          worker_self.close()
+        } else {
+          throw e
+        }
+      }
 
       send_message({ command: 'complete' })
       break

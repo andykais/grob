@@ -1,6 +1,6 @@
 import { test } from './tools/test.ts'
 import { path, fs, file_server } from './tools/deps.ts'
-import { GrobberRegistry, type GrobberDefinition } from '../mod.ts'
+import { GrobberRegistry, InvalidPermissions, type GrobberDefinition } from '../mod.ts'
 
 
 test('grobber registry', async t => {
@@ -81,6 +81,21 @@ test('grobber registry remote grob.yml', async t => {
   t.assert.rejects(() =>
     grobbers.register(path.join(t.fixtures_folder, 'imgur_duplicate', 'grob.yml'))
   )
+
+  grobbers.close()
+})
+
+test('grobber registry permissions', async t => {
+  const grobbers = new GrobberRegistry({ download_folder: t.artifacts_folder })
+
+  await grobbers.register(path.join(t.fixtures_folder, 'grobbers', 'invalid_permissions', 'grob.yml'))
+
+  const example_fetch = t.assert.fetch({
+    request: { url: 'https://example.com/'},
+    response: { body: `<html></html>` }
+  })
+  await t.assert.rejects(() => grobbers.start('https://example.com/'), InvalidPermissions)
+  example_fetch.remove()
 
   grobbers.close()
 })

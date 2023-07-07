@@ -8,6 +8,8 @@ interface WorkerControllerOptions {
   [accept_fetch_symbol]?: boolean
 }
 
+class InvalidPermissions extends Error {}
+
 class WorkerController {
   worker: Worker
   worker_complete_controller: PromiseController<void>
@@ -30,6 +32,7 @@ class WorkerController {
         }
       }
     })
+    this.worker_complete_controller = new PromiseController()
     this.worker.onmessage = async (event: MessageEvent<worker.WorkerMessage>) => {
       try {
         await this.handle_worker_message(event.data)
@@ -38,13 +41,17 @@ class WorkerController {
         this.worker.terminate()
       }
     }
-    this.worker_complete_controller = new PromiseController()
+    this.worker.onerror = error => {
+      const message = `${error.filename}:${error.lineno} ${error.message}`
+      this.worker_complete_controller.reject(new Error(message))
+    }
   }
 
   public async start(input: string) {
 
     const launch_message: worker.MasterMessageLaunch = {
       command: 'launch',
+      fetch_piping: this.accept_fetch,
       grobber_definition: this.grobber.definition,
       grobber_folder: this.download_folder,
       grobber_name: this.grobber.definition.name,
@@ -84,6 +91,19 @@ class WorkerController {
         })
         break
       }
+      case 'error': {
+        switch (message.type) {
+          case 'permission_denied': {
+            const worker_error = new Error(message.message)
+            worker_error.stack = message.stacktrace
+            throw new InvalidPermissions(`Invalid permissions within '${this.grobber.definition.name}'`, { cause: worker_error })
+            break
+          }
+          default: {
+            throw new Error(`master received unexpected worker error ${JSON.stringify(message)}`)
+          }
+        }
+      }
       default: {
         throw new Error(`master received unexpected worker message ${JSON.stringify(message)}`)
       }
@@ -91,5 +111,5 @@ class WorkerController {
   }
 }
 
-export { WorkerController }
+export { WorkerController, InvalidPermissions }
 export type { WorkerControllerOptions }

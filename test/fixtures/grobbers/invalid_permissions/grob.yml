@@ -1,0 +1,6 @@
+name: 'example_scraper'
+match: 'https://example.com/.*'
+permissions:
+  # we allow goole.com, but we will attempt to fetch example.com and fail
+  - google.com
+main: './main.ts'

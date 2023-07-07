@@ -18,6 +18,7 @@ interface MockFetchInstructions {
 interface LiveExpectation {
   status: 'UNFULFILLED' | 'RESPONDING' | 'FULFILLED'
   request: Promise<Request>
+  remove: () => void
 }
 
 interface MockExpectation {
@@ -57,7 +58,12 @@ class FetchMock {
     // push to the front of the array, so that when we respond, we look at the newest mocks first
     const live_expectation: LiveExpectation = {
       status: 'UNFULFILLED',
-      request: promise_controller.promise
+      request: promise_controller.promise,
+      remove: () => {
+        const index = this.expectations.findIndex(e => e.live_expectation === live_expectation)
+        if (index === -1) throw new Error('fetch expectation has already been fulfilled')
+        this.expectations.splice(index, 1)
+      }
     }
     this.expectations.push({
       promise_controller,
