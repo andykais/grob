@@ -41,13 +41,15 @@ class FetchMock {
     this.fetch_stub = mock.stub(window, 'fetch', this.responder)
   }
 
-  public clean() {
-    if (this.fetch_stub === undefined) throw new Error('FetchMock.start() must be called before calling FetchMock.clean()')
-    if (this.expectations.length > 0) {
-      throw new Error(`Fetch contains ${this.expectations.length} remaining expectations that went unfetched`)
+  public clean(force = false) {
+    if (!force) {
+      if (this.fetch_stub === undefined) throw new Error('FetchMock.start() must be called before calling FetchMock.clean()')
+      if (this.expectations.length > 0) {
+        throw new Error(`Fetch contains ${this.expectations.length} remaining expectations that went unfetched`)
+      }
     }
     this.expectations = []
-    this.fetch_stub.restore()
+    this.fetch_stub!.restore()
   }
 
   public expector = (instructions: MockFetchInstructions): LiveExpectation => {

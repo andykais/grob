@@ -92,7 +92,9 @@ function test(test_name: string, fn: TestFunction, options?: TestOptions) {
       try {
         cleanup()
       } catch (e) {
-        if (errors_occurred_in_test_function) {}
+        if (errors_occurred_in_test_function) {
+          fetch_mock.clean(true)
+        }
         else throw e
 
       }

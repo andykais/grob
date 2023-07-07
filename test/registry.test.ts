@@ -21,10 +21,10 @@ test('grobber registry', async t => {
     response: { body: image_file_fixture }
   })
 
-  // TODO in the future, we may need more than one input (e.g. username + session cookie)
+  // NOTE in the future, we may need more than one input (e.g. username + session cookie)
   // those may end up being secondary variable inputs though grobbers.start('https://instagram.com/myusername', { session_cookie: 'abc'})
   // I still like the idea of a string regex matcher
-  await grobbers.start('https://imgur.com/gallery/NTwmL')
+  await grobbers.start('https://imgur.com/gallery/NTwmL', { [Symbol.for('accept_fetch')]: true })
 
   let image_file
   let gallery_data
@@ -70,10 +70,9 @@ test('grobber registry remote grob.yml', async t => {
     response: { body: await Deno.readFile(path.join(t.fixtures_folder, '/files/i.imgur.com/ppUDAuk.jpeg')) }
   })
 
-  await grobbers.start('https://imgur.com/gallery/NTwmL')
+  await grobbers.start('https://imgur.com/gallery/NTwmL', { [Symbol.for('accept_fetch')]: true })
 
-  // TODO add subtests for cached registry, errored uncached registry with different names
-  // console.log(t.name)
+  // TODO use subtests for cached/invalid registries. Currently not possible due to a deno bug https://github.com/denoland/deno/issues/19750
 
   // grabbing an existing grob.yml should be cached by default
   await grobbers.register('https://raw.githubusercontent.com/andykais/grob/imgur.com/grob.yml')

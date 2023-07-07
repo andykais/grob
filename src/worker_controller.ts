@@ -2,13 +2,21 @@ import { PromiseController } from "./promise_controller.ts";
 import { CompiledGrobber } from "./registry.ts";
 import * as worker from './worker.ts'
 
+const accept_fetch_symbol = Symbol.for('accept_fetch')
+
+interface WorkerControllerOptions {
+  [accept_fetch_symbol]?: boolean
+}
+
 class WorkerController {
   worker: Worker
   worker_complete_controller: PromiseController<void>
   grobber: CompiledGrobber
   download_folder: string
+  accept_fetch: boolean
 
-  public constructor(download_folder: string, grobber: CompiledGrobber) {
+  public constructor(download_folder: string, grobber: CompiledGrobber, options?: WorkerControllerOptions) {
+    this.accept_fetch = options?.[accept_fetch_symbol] ?? false
     this.download_folder = download_folder
     this.grobber = grobber
     this.worker = new Worker(new URL('./worker.ts', import.meta.url), {
@@ -22,8 +30,13 @@ class WorkerController {
         }
       }
     })
-    this.worker.onmessage = async (e: MessageEvent<worker.WorkerMessage>) => {
-      return this.handle_worker_message(e.data)
+    this.worker.onmessage = async (event: MessageEvent<worker.WorkerMessage>) => {
+      try {
+        await this.handle_worker_message(event.data)
+      } catch (error) {
+        this.worker_complete_controller.reject(error)
+        this.worker.terminate()
+      }
     }
     this.worker_complete_controller = new PromiseController()
   }
@@ -59,6 +72,7 @@ class WorkerController {
         break
       }
       case 'fetch': {
+        if (!this.accept_fetch) throw new Error('Fetch piping not allowed from this worker')
         const { fetch_id, url, method, body } = message
         const response = await fetch(url, { method, body })
         const response_body = await response.arrayBuffer()
@@ -78,3 +92,4 @@ class WorkerController {
 }
 
 export { WorkerController }
+export type { WorkerControllerOptions }

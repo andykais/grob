@@ -3,7 +3,7 @@ import { path, yaml } from './deps.ts'
 import { Grob } from './grob.ts'
 import { type RateLimitQueueConfig } from './queue.ts'
 import * as worker from './worker.ts'
-import { WorkerController } from './worker_controller.ts'
+import { WorkerController, type WorkerControllerOptions } from './worker_controller.ts'
 
 
 interface GrobberRegistryConfig {
@@ -133,11 +133,11 @@ class GrobberRegistry {
     await Deno.writeTextFile(peristent_registry_filepath, JSON.stringify(persistent_registry))
   }
 
-  public async start(input: string) {
+  public async start(input: string, options?: WorkerControllerOptions) {
     for (const grobber of this.registry.values()) {
       const is_match = new RegExp(grobber.definition.match).test(input)
       if (is_match) {
-        return this.launch_grobber(input, grobber)
+        return this.launch_grobber(input, grobber, options)
       }
     }
     throw new Error(`No grob.yml found for input '${input}'`)
@@ -157,11 +157,11 @@ class GrobberRegistry {
     }
   }
 
-  protected async launch_grobber(input: string, grobber: CompiledGrobber) {
+  private async launch_grobber(input: string, grobber: CompiledGrobber, options: WorkerControllerOptions | undefined) {
     const sanitized_folder_name = input.replaceAll('/', '_')
     const download_folder = path.join(this.download_folder, grobber.definition.name, sanitized_folder_name)
     await Deno.mkdir(download_folder, { recursive: true })
-    const worker_controller = new WorkerController(download_folder, grobber)
+    const worker_controller = new WorkerController(download_folder, grobber, options)
 
     return worker_controller.start(input)
 

@@ -33,7 +33,8 @@ interface WorkerMessageFetch {
   fetch_id: string
   method: string
   url: string
-  body: any
+  body: any | undefined
+  headers: HeadersInit | undefined
 }
 
 interface WorkerMessageComplete {
@@ -71,6 +72,7 @@ worker_self.onmessage = async (e: MessageEvent<MasterMessage>) => {
           url: input.toString(),
           method: init?.method ?? 'GET',
           body: init?.body,
+          headers: init?.headers
         })
         const promise_controller = new PromiseController<Response>()
         fetch_response_controllers[fetch_id] = promise_controller

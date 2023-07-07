@@ -62,7 +62,6 @@ class Grob {
 
   public async fetch_cookies(url: string, fetch_options?: RequestInit, grob_options?: GrobOptions) {
     const response_headers = await this.fetch_headers(url, fetch_options, grob_options)
-    // TODO use deno 1.35.0 Headers.getSetCookies()
     return getSetCookies(response_headers)
   }
 
