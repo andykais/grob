@@ -107,7 +107,9 @@ class GrobberRegistry {
         const definition_folder = path.dirname(registration as string)
         const parent_folder = path.isAbsolute(definition_folder) ? definition_folder : path.join(Deno.cwd(), definition_folder)
         local_grobber_program_filepath = path.join(parent_folder, grobber_definition.main)
-        program = (await import(local_grobber_program_filepath)).default as GrobEntrypoint
+        console.log('importing', local_grobber_program_filepath)
+        program = (await import(`file://${local_grobber_program_filepath}`)).default as GrobEntrypoint
+        console.log(`imported`)
       } else {
         throw new Error(`unexpected registration type ${registration_type}`)
       }

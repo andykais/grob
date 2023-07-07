@@ -84,8 +84,10 @@ function pipe_fetch() {
   }
 }
 
+console.log('executing worker...')
 const fetch_response_controllers: Record<string, PromiseController<Response>> = {}
 worker_self.onmessage = async (e: MessageEvent<MasterMessage>) => {
+  console.log('worker received message', e.data)
   switch(e.data.command) {
     case 'launch': {
       if (e.data.fetch_piping) {
