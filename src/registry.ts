@@ -1,56 +1,40 @@
-import { PromiseController } from '../test/tools/promise_controller.ts'
-import { path, yaml } from './deps.ts'
+import { PromiseController } from './promise_controller.ts'
+import { path, yaml, z } from './deps.ts'
 import { Grob } from './grob.ts'
 import { type RateLimitQueueConfig } from './queue.ts'
 import * as worker from './worker.ts'
 import { WorkerController, type WorkerControllerOptions } from './worker_controller.ts'
+import * as input from './input.ts'
 
+type InputTypes = { [K in keyof typeof input]: z.infer<(typeof input)[K]> }
+
+type GrobEntrypoint = (grob: Grob, input: string) => Promise<void>
+
+type GrobberDefinition = InputTypes['GrobberDefinition']
 
 interface GrobberRegistryConfig {
   download_folder?: string
 }
 
-type Regex = string
-type URLString = string
-type FilepathString = string
-type GrobName = string
-
-type GrobEntrypoint = (grob: Grob, input: string) => Promise<void>
-
-interface GrobberDefinition {
-  name: GrobName
-  match: Regex
-  folder?: string
-  permissions?: Regex[]
-  throttle?: RateLimitQueueConfig
-  depends_on?: GrobberRegistration[]
-  headers?: Record<string, string>
-  main: URLString | FilepathString
-}
-
-type GrobberRegistration = URLString | FilepathString
-
-
 interface CompiledGrobber {
   registration_identifier: string
-  definition: GrobberDefinition
-  main_filepath: FilepathString
+  definition: InputTypes['GrobberDefinition']
+  main_filepath: InputTypes['Filepath']
   main: GrobEntrypoint
 }
 
-interface PersistentRegistry {
-  [name: string]: {
-    grobber_definition_filepath: string
-  }
-}
+type PersistentRegistry = Record<InputTypes['GrobName'], {
+  grobber_definition_filepath: string
+}>
 
 
 class GrobberRegistry {
   public download_folder: string
   public registry_folder: string
   private config: GrobberRegistryConfig | undefined
-  private registry: Map<GrobName, CompiledGrobber>
+  private registry: Map<InputTypes['GrobName'], CompiledGrobber>
   private registry_grob: Grob
+  private force_dynamic_import_cache_reload: boolean
 
   public constructor(config?: GrobberRegistryConfig) {
     this.config = config
@@ -58,14 +42,15 @@ class GrobberRegistry {
     this.registry = new Map()
     this.registry_folder = path.join(this.download_folder, '.registry')
     this.registry_grob = new Grob({ download_folder: this.registry_folder })
+    this.force_dynamic_import_cache_reload = false
   }
 
-  public async register(registration: GrobberRegistration) {
+  public async register(registration: InputTypes['GrobberRegistration']) {
     let local_grobber_definition_filepath: string
-    let local_grobber_program_filepath: string
+    let grobber_program_source: string
     let registration_identifier: string
     let registration_type: 'url' | 'filepath'
-    let grobber_definition: GrobberDefinition
+    let grobber_definition: InputTypes['GrobberDefinition']
 
     if (this.is_valid_url(registration)) {
       registration_type = 'url'
@@ -77,14 +62,12 @@ class GrobberRegistry {
       local_grobber_definition_filepath = path.isAbsolute(registration) ? registration : path.join(Deno.cwd(), registration)
     }
     const content = await Deno.readTextFile(local_grobber_definition_filepath)
-    grobber_definition = yaml.parse(content) as GrobberDefinition
+    const decoded = yaml.parse(content)
+    grobber_definition = input.GrobberDefinition.parse(decoded)
 
     if (grobber_definition.depends_on) {
       throw new Error('unimplemented')
     }
-    // if (grobber_definition.permissions) {
-    //   throw new Error('unimplemented')
-    // }
 
     const existing_registry_entry = this.registry.get(grobber_definition.name)
     if (existing_registry_entry && existing_registry_entry.registration_identifier !== registration) {
@@ -94,22 +77,24 @@ class GrobberRegistry {
 
     let program: GrobEntrypoint
     if (this.is_valid_url(grobber_definition.main)) {
-      local_grobber_program_filepath = await this.registry_grob.fetch_file(grobber_definition.main)
-      program = (await import(local_grobber_program_filepath)).default as GrobEntrypoint
+      grobber_program_source = await this.registry_grob.fetch_file(grobber_definition.main)
+      program = (await import(grobber_program_source)).default as GrobEntrypoint
     } else {
       if (registration_type === 'url') {
         const registration_url = new URL(registration as string)
 
         const resolved_path = path.join(path.dirname(registration_url.pathname), grobber_definition.main)
-        const resolved_url = registration_url.origin + resolved_path
-        local_grobber_program_filepath = await this.registry_grob.fetch_file(resolved_url)
-        program = (await import(local_grobber_program_filepath)).default as GrobEntrypoint
+        let resolved_url = registration_url.origin + resolved_path
+        // a testing flag that adds a unique query param to the dependency to force a cache reload
+        if (this.force_dynamic_import_cache_reload) resolved_url += `?reload=${Date.now()}`
+        program = (await import(resolved_url)).default
+        grobber_program_source = resolved_url
       } else if (registration_type === 'filepath') {
         // a filepath here must be relative to the grob.yml folder
         const definition_folder = path.dirname(registration as string)
         const parent_folder = path.isAbsolute(definition_folder) ? definition_folder : path.join(Deno.cwd(), definition_folder)
-        local_grobber_program_filepath = `file://${path.join(parent_folder, grobber_definition.main)}`
-        program = (await import(local_grobber_program_filepath)).default as GrobEntrypoint
+        grobber_program_source = `file://${path.join(parent_folder, grobber_definition.main)}`
+        program = (await import(grobber_program_source)).default as GrobEntrypoint
       } else {
         throw new Error(`unexpected registration type ${registration_type}`)
       }
@@ -118,7 +103,7 @@ class GrobberRegistry {
     this.registry.set(grobber_definition.name, {
       registration_identifier,
       definition: grobber_definition,
-      main_filepath: local_grobber_program_filepath,
+      main_filepath: grobber_program_source,
       main: program
     })
 

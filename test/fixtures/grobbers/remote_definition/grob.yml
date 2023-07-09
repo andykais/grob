@@ -1,0 +1,5 @@
+match: 'https:\/\/foo.com.*'
+name: 'foo.com'
+main: './main.ts'
+# no remote fetches are allowed
+permissions: []

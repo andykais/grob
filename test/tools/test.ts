@@ -26,6 +26,7 @@ interface TestContext extends Deno.TestContext {
   fixtures_folder: string
   assert: Asserts
   fake_time: FakeTimeTool
+  fake_fetch: FetchMock
 }
 
 type TestFunction = (t: TestContext) => Promise<void>
@@ -59,7 +60,7 @@ function test(test_name: string, fn: TestFunction, options?: TestOptions) {
       else throw e
     })
     await Deno.mkdir(artifacts_folder, { recursive: true })
-    fetch_mock.start()
+    fetch_mock.enable()
   }
   function cleanup() {
     fake_time.restore()
@@ -72,6 +73,7 @@ function test(test_name: string, fn: TestFunction, options?: TestOptions) {
       artifacts_folder,
       fixtures_folder,
       fake_time,
+      fake_fetch: fetch_mock,
       assert: {
         fetch: fetch_mock.expector,
         fetch_mock_not_found: assert_fetch_mock_not_found,

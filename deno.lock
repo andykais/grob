@@ -217,7 +217,8 @@
       "dom-serializer": "dom-serializer@2.0.0",
       "domhandler": "domhandler@5.0.3",
       "domutils": "domutils@3.1.0",
-      "htmlparser2": "htmlparser2@9.0.0"
+      "htmlparser2": "htmlparser2@9.0.0",
+      "zod@3.21": "zod@3.21.4"
     },
     "packages": {
       "boolbase@1.0.0": {
@@ -331,6 +332,10 @@
         "dependencies": {
           "entities": "entities@4.4.0"
         }
+      },
+      "zod@3.21.4": {
+        "integrity": "sha512-m46AKbrzKVzOzs/DZgVnG5H55N1sv1M8qZU3A8RIKbs3mrACDNeIOeilDymVb2HdmP8uwshOCF4uJ8uM9rCqJw==",
+        "dependencies": {}
       }
     }
   }

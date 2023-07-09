@@ -32,17 +32,27 @@ class FetchMockNotFound extends Error {}
 
 
 class FetchMock {
+  private disabled: boolean
   private fetch_stub: mock.Stub<Window & typeof globalThis, Parameters<typeof fetch>> | undefined
   private expectations: MockExpectation[]
   public constructor() {
+    this.disabled = false
     this.expectations = []
   }
 
-  public start() {
+  public enable() {
     this.fetch_stub = mock.stub(window, 'fetch', this.responder)
+    this.disabled = false
+  }
+
+  public disable() {
+    this.clean()
+    this.disabled = true
   }
 
   public clean(force = false) {
+    if (this.disabled && !force) return
+
     if (!force) {
       if (this.fetch_stub === undefined) throw new Error('FetchMock.start() must be called before calling FetchMock.clean()')
       if (this.expectations.length > 0) {

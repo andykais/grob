@@ -43,7 +43,8 @@ test('grobber registry', async t => {
   grobbers.close()
 })
 
-test('grobber registry remote grob.yml', async t => {
+// this test is likely to get removed. We now do an actual dynamic import, rather than a fetch and then dynamic import
+test.skip('grobber registry remote grob.yml', async t => {
   const grobbers = new GrobberRegistry({ download_folder: t.artifacts_folder })
 
   // lets simulate a remote grob.yml file, which will have a relative program file that needs to be fetched as well
@@ -98,4 +99,37 @@ test('grobber registry permissions', async t => {
   example_fetch.remove()
 
   grobbers.close()
+})
+
+test('registry remote integration server', async t => {
+  t.fake_fetch.disable()
+
+  const server_controller = new AbortController()
+  const server = Deno.serve({
+    handler: async (req: Request) => {
+      if (req.url.includes('/static')) {
+        return await file_server.serveDir(req, {
+          fsRoot: path.join(t.fixtures_folder, 'grobbers', 'remote_definition'),
+          urlRoot: 'static'
+        })
+      } else {
+        return new Response('foobar')
+      }
+    },
+    port: 9000,
+    signal: server_controller.signal
+  })
+
+  const grobbers = new GrobberRegistry({ download_folder: t.artifacts_folder })
+  ;(grobbers as any).force_dynamic_import_cache_reload = true
+  await grobbers.register('http://localhost:9000/static/grob.yml')
+  await grobbers.start('https://foo.com/?a=2&b=3')
+
+  const contents = await Deno.readTextFile(path.join(t.artifacts_folder, 'foo.com', 'https:__foo.com_?a=2&b=3', 'add.json'))
+  const data = JSON.parse(contents)
+  t.assert.equals(data, { a: 2, b: 3, result: 5 })
+
+  grobbers.close()
+  server_controller.abort()
+  await server.finished
 })
