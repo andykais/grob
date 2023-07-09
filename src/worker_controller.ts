@@ -21,7 +21,6 @@ class WorkerController {
     this.accept_fetch = options?.[accept_fetch_symbol] ?? false
     this.download_folder = download_folder
     this.grobber = grobber
-    console.log('creating worker')
     this.worker = new Worker(new URL('./worker.ts', import.meta.url), {
       type: 'module',
       deno: {
@@ -33,7 +32,6 @@ class WorkerController {
         }
       }
     })
-    console.log('created worker')
     this.worker_complete_controller = new PromiseController()
     this.worker.onmessage = async (event: MessageEvent<worker.WorkerMessage>) => {
       try {
@@ -51,7 +49,6 @@ class WorkerController {
 
   public async start(input: string) {
 
-    console.log('sending launch message to worker...')
     const launch_message: worker.MasterMessageLaunch = {
       command: 'launch',
       fetch_piping: this.accept_fetch,
@@ -62,7 +59,6 @@ class WorkerController {
       input,
     }
     this.send_message(launch_message)
-    console.log('launch message sent')
 
     await this.worker_complete_controller.promise
     this.worker.terminate()
@@ -104,6 +100,7 @@ class WorkerController {
             break
           }
           default: {
+            console.error(message.stacktrace)
             throw new Error(`master received unexpected worker error ${JSON.stringify(message)}`)
           }
         }

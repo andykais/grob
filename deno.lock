@@ -214,6 +214,7 @@
       "cheerio": "cheerio@1.0.0-rc.12",
       "cheerio@1.0.0-rc.12": "cheerio@1.0.0-rc.12",
       "css-select": "css-select@5.1.0",
+      "dom-serializer": "dom-serializer@2.0.0",
       "domhandler": "domhandler@5.0.3",
       "domutils": "domutils@3.1.0",
       "htmlparser2": "htmlparser2@9.0.0"

@@ -84,10 +84,8 @@ function pipe_fetch() {
   }
 }
 
-console.log('executing worker...')
 const fetch_response_controllers: Record<string, PromiseController<Response>> = {}
 worker_self.onmessage = async (e: MessageEvent<MasterMessage>) => {
-  console.log('worker received message', e.data)
   switch(e.data.command) {
     case 'launch': {
       if (e.data.fetch_piping) {
@@ -95,7 +93,7 @@ worker_self.onmessage = async (e: MessageEvent<MasterMessage>) => {
       }
       const { grobber_definition, grobber_folder, main_filepath, input } = e.data
       const program = (await import(main_filepath)).default
-      const grob = new Grob({ download_folder: grobber_folder, throttle: grobber_definition.throttle })
+      const grob = new Grob({ download_folder: grobber_folder, throttle: grobber_definition.throttle, headers: grobber_definition.headers })
 
       try {
         await program(grob, input)

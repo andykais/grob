@@ -146,11 +146,11 @@ test('grob html', async t => {
   })
 
   const index_html = await grob.fetch_html('https://search.brave.com')
-  t.assert.equals(index_html.one('span.title')?.text(), 'brave search engine')
-  t.assert.equals(index_html.one('a.homelink')?.attr('href'), 'https://brave.com')
-  const search_results = index_html.all('.searchresult').map(node => ({
-    link: node.one('a')?.attr('href'),
-    blurb: node.one('span.blurb')?.text(),
+  t.assert.equals(index_html.select_one('span.title')?.text(), 'brave search engine')
+  t.assert.equals(index_html.select_one('a.homelink')?.attr('href'), 'https://brave.com')
+  const search_results = index_html.select_all('.searchresult').map(node => ({
+    link: node.select_one('a')?.attr('href'),
+    blurb: node.select_one('span.blurb')?.text(),
   }))
   t.assert.equals(search_results, [
     {link: 'https://mysite.com', blurb: 'My Site contains info'},

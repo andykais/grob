@@ -7,3 +7,4 @@ export * as CSSSelect from 'npm:css-select'
 export { parseDOM } from "npm:htmlparser2";
 export * as domhandler from "npm:domhandler";
 export * as DomUtils from 'npm:domutils'
+export * as dom_serializer from 'npm:dom-serializer'

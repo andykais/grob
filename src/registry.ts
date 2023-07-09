@@ -20,9 +20,11 @@ type GrobEntrypoint = (grob: Grob, input: string) => Promise<void>
 interface GrobberDefinition {
   name: GrobName
   match: Regex
+  folder?: string
   permissions?: Regex[]
   throttle?: RateLimitQueueConfig
   depends_on?: GrobberRegistration[]
+  headers?: Record<string, string>
   main: URLString | FilepathString
 }
 
@@ -106,10 +108,8 @@ class GrobberRegistry {
         // a filepath here must be relative to the grob.yml folder
         const definition_folder = path.dirname(registration as string)
         const parent_folder = path.isAbsolute(definition_folder) ? definition_folder : path.join(Deno.cwd(), definition_folder)
-        local_grobber_program_filepath = path.join(parent_folder, grobber_definition.main)
-        console.log('importing', local_grobber_program_filepath)
-        program = (await import(`file://${local_grobber_program_filepath}`)).default as GrobEntrypoint
-        console.log(`imported`)
+        local_grobber_program_filepath = `file://${path.join(parent_folder, grobber_definition.main)}`
+        program = (await import(local_grobber_program_filepath)).default as GrobEntrypoint
       } else {
         throw new Error(`unexpected registration type ${registration_type}`)
       }
@@ -138,9 +138,9 @@ class GrobberRegistry {
 
   public async start(input: string, options?: WorkerControllerOptions) {
     for (const grobber of this.registry.values()) {
-      const is_match = new RegExp(grobber.definition.match).test(input)
-      if (is_match) {
-        return this.launch_grobber(input, grobber, options)
+      const matched_input = input.match(new RegExp(grobber.definition.match))?.[0]
+      if (matched_input) {
+        return this.launch_grobber(matched_input, grobber, options)
       }
     }
     throw new Error(`No grob.yml found for input '${input}'`)
@@ -162,7 +162,11 @@ class GrobberRegistry {
 
   private async launch_grobber(input: string, grobber: CompiledGrobber, options: WorkerControllerOptions | undefined) {
     const sanitized_folder_name = input.replaceAll('/', '_')
-    const download_folder = path.join(this.download_folder, grobber.definition.name, sanitized_folder_name)
+
+    const download_folder = grobber.definition.folder
+      ? path.join(this.download_folder, grobber.definition.name, grobber.definition.folder)
+      : path.join(this.download_folder, grobber.definition.name, sanitized_folder_name)
+
     await Deno.mkdir(download_folder, { recursive: true })
     const worker_controller = new WorkerController(download_folder, grobber, options)
 

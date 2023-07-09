@@ -1,4 +1,4 @@
-import { CSSSelect, parseDOM, domhandler, DomUtils } from './deps.ts'
+import { CSSSelect, parseDOM, domhandler, dom_serializer, DomUtils } from './deps.ts'
 
 
 class Htmlq {
@@ -12,13 +12,10 @@ class Htmlq {
   }
 
   public attr(attribute_name: string) {
-    if (this.document instanceof domhandler.Element) {
-      return DomUtils.getAttributeValue(this.document, attribute_name)
-    }
     if (Array.isArray(this.document)) {
       throw new Error('Cannot look up attribute on an array of nodes')
     }
-    throw new Error('Cannot look up attribute on ChildNode')
+    return DomUtils.getAttributeValue(this.document as domhandler.Element, attribute_name)
   }
 
   public text() {
@@ -31,14 +28,18 @@ class Htmlq {
     return inner_text
   }
 
-  public one(css_selector: string) {
+  public html() {
+    return dom_serializer.default(this.document)
+  }
+
+  public select_one(css_selector: string) {
     const result = CSSSelect.selectOne(css_selector, this.document)
     if (result) {
       return new Htmlq(result)
     }
   }
 
-  public all(css_selector: string, attr?: string) {
+  public select_all(css_selector: string) {
     const result = CSSSelect.selectAll(css_selector, this.document)
     return result.map(node => new Htmlq(node))
   }
