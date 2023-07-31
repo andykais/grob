@@ -123,9 +123,12 @@ class GrobberRegistry {
 
   public async start(input: string, options?: WorkerControllerOptions) {
     for (const grobber of this.registry.values()) {
-      const matched_input = input.match(new RegExp(grobber.definition.match))?.[0]
-      if (matched_input) {
-        return this.launch_grobber(matched_input, grobber, options)
+      const match_regexes = Array.isArray(grobber.definition.match) ? grobber.definition.match : [grobber.definition.match]
+      for (const match of match_regexes) {
+        const matched_input = input.match(new RegExp(match))?.[0]
+        if (matched_input) {
+          return this.launch_grobber(matched_input, grobber, options)
+        }
       }
     }
     throw new Error(`No grob.yml found for input '${input}'`)

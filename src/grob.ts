@@ -137,15 +137,17 @@ class Grob {
 
 
     const headers = {...this.default_headers}
-    for (const [name, value] of Object.entries(fetch_options?.headers ?? {})) {
+    const { headers: fetch_options_headers, method, ...passthrough_fetch_options } = fetch_options ?? {}
+    for (const [name, value] of Object.entries(fetch_options_headers ?? {})) {
       headers[name] = value
     }
 
-    const request = { url, headers, body: fetch_options?.body }
+    const request = { method, url, headers, body: fetch_options?.body, ...passthrough_fetch_options }
     const serialized_request = JSON.stringify(request)
 
     if (cache) {
-      const persistent_response = this.db.select_request(request)
+      const check_expiration = Boolean(grob_options.expires_on)
+      const persistent_response = this.db.select_request(request, check_expiration)
       if (persistent_response) {
         this.stats.cache_count++
         return persistent_response
@@ -156,7 +158,8 @@ class Grob {
       }
     }
 
-    const fetch_promise = this.queue.enqueue(() => fetch(url, { headers, body: request.body }))
+    const fetch_options_final = { headers, body: request.body, ...passthrough_fetch_options }
+    const fetch_promise = this.queue.enqueue(() => fetch(url, fetch_options_final))
     this.runtime_cache.set(serialized_request, fetch_promise)
 
     this.stats.fetch_count++
@@ -183,10 +186,8 @@ class Grob {
       await Deno.rename(path.join(response_body_folder, path.basename(response_body_filepath_temp)), response_body_filepath)
     }
 
-    if (cache)  {
-      this.db.insert_response(request, response_headers, response_body, response_body_filepath, { expires_on })
-      this.runtime_cache.delete(serialized_request)
-    }
+    this.db.insert_response(request, response_headers, response_body, response_body_filepath, { expires_on })
+    this.runtime_cache.delete(serialized_request)
 
     const grob_response = new GrobResponse(response_body, response)
     grob_response.filepath = write
