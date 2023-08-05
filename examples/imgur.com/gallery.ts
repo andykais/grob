@@ -3,7 +3,7 @@ import { Grob } from 'https://deno.land/x/grob/mod.ts'
 
 
 export default async function(grob: Grob, input: string) {
-  const gallery_page = await grob.fetch_html('https://imgur.com/gallery/NTwmL')
+  const gallery_page = await grob.fetch_html(input)
   const script_content = gallery_page.select_one("script:contains('postDataJSON')")?.text()
     .replace('window.postDataJSON=', '')
     .replace(/^"/, '')

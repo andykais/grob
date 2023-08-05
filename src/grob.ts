@@ -32,7 +32,9 @@ interface GrobStats {
 }
 
 
-const DEFAULT_HEADERS = {}
+const DEFAULT_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; rv:102.0) Gecko/20100101 Firefox/102.0'
+}
 
 class GrobResponse extends Response {
   filepath?: string
@@ -51,7 +53,7 @@ class Grob {
 
   public constructor(config?: GrobConfig) {
     this.config = config ?? {}
-    this.default_headers = config?.headers ?? DEFAULT_HEADERS
+    this.default_headers = {...config?.headers, ...DEFAULT_HEADERS}
     this.download_folder = this.config.download_folder ?? path.join(Deno.cwd(), 'grobber')
     this.files_folder = path.join(this.download_folder, 'files')
     this.files_temp_folder = path.join(this.download_folder, '.files_temp')
