@@ -133,3 +133,41 @@ test('registry remote integration server', async t => {
   server_controller.abort()
   await server.finished
 })
+
+
+test.only('registry multiple entrypoints', async t => {
+  const grobbers = new GrobberRegistry({ download_folder: t.artifacts_folder })
+
+  // await grobbers.register('./examples/imgur.com/grob.yml')
+  await grobbers.register('../grob/examples/tumblr.com/grob.yml')
+  // await grobbers.register('https://git.com/examples/imgur.com/grob.yml')
+
+  // const image_file_fixture = await Deno.readFile(path.join(t.fixtures_folder, '/files/i.imgur.com/ppUDAuk.jpeg'))
+  t.assert.fetch({
+    request: { url: 'https://tumblr.com/andykais' },
+    response: { body: await Deno.readTextFile(path.join(t.fixtures_folder, '/files/tumblr.com/andykais.html')) }
+  })
+
+  // t.assert.fetch({
+  //   request: { url: 'https://i.imgur.com/ppUDAuk.jpeg' },
+  //   response: { body: image_file_fixture }
+  // })
+
+  await grobbers.start('https://tumblr.com/andykais', { [Symbol.for('accept_fetch')]: true })
+
+//   let image_file
+//   let gallery_data
+//   const files: fs.WalkEntry[] = []
+//   for await (const file of fs.walk(path.join(t.artifacts_folder, 'imgur_gallery'))) {
+//     if (!file.isFile) continue
+//     if (file.name === 'ppUDAuk.jpeg') image_file = await Deno.readFile(file.path)
+//     if (file.name === 'gallery_data.json') gallery_data = JSON.parse(await Deno.readTextFile(file.path))
+//     files.push(file)
+//   }
+//   t.assert.equals(files.length, 3)
+//   t.assert.equals(image_file, image_file_fixture)
+//   t.assert.equals(gallery_data.title, `"What do you mean you don't know what that is?!"`)
+//   t.assert.equals(gallery_data.media.length, 1)
+
+  grobbers.close()
+})
