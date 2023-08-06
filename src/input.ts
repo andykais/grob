@@ -26,7 +26,7 @@ export const GrobberRegistration = z.union([URLString, Filepath])
 
 export const GrobberDefinition = z.object({
   name: GrobName,
-  match: RegexString,
+  // match: RegexString,
   folder: Filepath.optional(),
   permissions: RegexString.array().optional(),
   throttle: RateLimitQueueConfig.optional(),

@@ -1,7 +1,7 @@
 import { PromiseController } from './promise_controller.ts'
 import { path } from './deps.ts'
 import { Grob } from './grob.ts'
-import { GrobberRegistry, type GrobberRegistryConfig, type CompiledGrobber, type GrobberDefinition } from './registry.ts'
+import { GrobberRegistry, type GrobberRegistryConfig, type CompiledGrobber, type GrobberDefinition, type GrobMain } from './registry.ts'
 
 // reconsitution failed. We cant really do this because the sandbox is broken because we have to load files from random sources
 // we could try to copy every registerred bit of code and grob.yml into a particular folder on every run, but that feels bad
@@ -92,11 +92,16 @@ worker_self.onmessage = async (e: MessageEvent<MasterMessage>) => {
         pipe_fetch()
       }
       const { grobber_definition, grobber_folder, main_filepath, input } = e.data
-      const program = (await import(main_filepath)).default
+      const program = (await import(main_filepath)) as GrobMain
       const grob = new Grob({ download_folder: grobber_folder, throttle: grobber_definition.throttle, headers: grobber_definition.headers })
 
+      const entrypoint = program.grobber.match(input)
+      if (!entrypoint) {
+        throw new Error(`unexpected code path. Matched '${input}' on ${grobber_definition.name} in main process but failed to match in worker`)
+      }
+
       try {
-        await program(grob, input)
+        await entrypoint.fn(grob, input, entrypoint.vars)
       } catch (e) {
         if (e instanceof Deno.errors.PermissionDenied) {
           send_message({

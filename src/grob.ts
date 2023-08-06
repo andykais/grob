@@ -179,6 +179,14 @@ class Grob {
       await Deno.mkdir(response_body_folder_temp)
       // we _may_ error here on a file name clash, but thats more of a user error than anything
       const file = await Deno.open(response_body_filepath_temp, { write: true, createNew: true })
+
+      // const content_length = parseInt(response.headers.get('content-length')!)
+      // let progress = 0
+      // for await (const chunk of response.body!) {
+      //   progress += chunk.length
+      //   await file.write(chunk)
+      //   console.log(`progress ${progress}/${content_length} (${(progress / content_length).toFixed(2)}%)`)
+      // }
       await response.body?.pipeTo(file.writable)
       await Deno.mkdir(response_body_folder, { recursive: true })
       await Deno.rename(response_body_folder_temp, response_body_folder)

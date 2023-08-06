@@ -5,4 +5,8 @@
     "test:watch": "deno test --unstable --watch --check --trace-ops --import-map test/tools/import_map.json --allow-read --allow-write --allow-net",
     "lint": "deno lint",
   }
+
+  "imports": {
+    "https://deno.land/x/grob/mod.ts": "./mod.ts"
+  }
 }

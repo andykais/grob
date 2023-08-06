@@ -6,6 +6,7 @@ const accept_fetch_symbol = Symbol.for('accept_fetch')
 
 interface WorkerControllerOptions {
   [accept_fetch_symbol]?: boolean
+  vars?: Record<string, string>
 }
 
 class InvalidPermissions extends Error {}

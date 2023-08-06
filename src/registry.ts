@@ -5,10 +5,13 @@ import { type RateLimitQueueConfig } from './queue.ts'
 import * as worker from './worker.ts'
 import { WorkerController, type WorkerControllerOptions } from './worker_controller.ts'
 import * as input from './input.ts'
+import type { Grobber } from './grobber.ts'
 
 type InputTypes = { [K in keyof typeof input]: z.infer<(typeof input)[K]> }
 
-type GrobEntrypoint = (grob: Grob, input: string) => Promise<void>
+interface GrobMain {
+  grobber: Grobber
+}
 
 type GrobberDefinition = InputTypes['GrobberDefinition']
 
@@ -20,7 +23,7 @@ interface CompiledGrobber {
   registration_identifier: string
   definition: InputTypes['GrobberDefinition']
   main_filepath: InputTypes['Filepath']
-  main: GrobEntrypoint
+  main: GrobMain
 }
 
 type PersistentRegistry = Record<InputTypes['GrobName'], {
@@ -75,10 +78,10 @@ class GrobberRegistry {
     }
 
 
-    let program: GrobEntrypoint
+    let program: GrobMain
     if (this.is_valid_url(grobber_definition.main)) {
       grobber_program_source = await this.registry_grob.fetch_file(grobber_definition.main)
-      program = (await import(grobber_program_source)).default as GrobEntrypoint
+      program = (await import(grobber_program_source))
     } else {
       if (registration_type === 'url') {
         const registration_url = new URL(registration as string)
@@ -87,14 +90,14 @@ class GrobberRegistry {
         let resolved_url = registration_url.origin + resolved_path
         // a testing flag that adds a unique query param to the dependency to force a cache reload
         if (this.force_dynamic_import_cache_reload) resolved_url += `?reload=${Date.now()}`
-        program = (await import(resolved_url)).default
+        program = (await import(resolved_url))
         grobber_program_source = resolved_url
       } else if (registration_type === 'filepath') {
         // a filepath here must be relative to the grob.yml folder
         const definition_folder = path.dirname(registration as string)
         const parent_folder = path.isAbsolute(definition_folder) ? definition_folder : path.join(Deno.cwd(), definition_folder)
         grobber_program_source = `file://${path.join(parent_folder, grobber_definition.main)}`
-        program = (await import(grobber_program_source)).default as GrobEntrypoint
+        program = (await import(grobber_program_source))
       } else {
         throw new Error(`unexpected registration type ${registration_type}`)
       }
@@ -123,9 +126,10 @@ class GrobberRegistry {
 
   public async start(input: string, options?: WorkerControllerOptions) {
     for (const grobber of this.registry.values()) {
-      const matched_input = input.match(new RegExp(grobber.definition.match))?.[0]
+      const matched_input = grobber.main.grobber.match(input)
       if (matched_input) {
-        return this.launch_grobber(matched_input, grobber, options)
+        const vars = {...options?.vars, ...matched_input.vars}
+        return this.launch_grobber(input, grobber, {...options, vars})
       }
     }
     throw new Error(`No grob.yml found for input '${input}'`)
@@ -162,4 +166,4 @@ class GrobberRegistry {
 
 
 export { GrobberRegistry }
-export type { GrobberRegistryConfig, GrobberDefinition, CompiledGrobber }
+export type { GrobberRegistryConfig, GrobberDefinition, CompiledGrobber, GrobMain }
