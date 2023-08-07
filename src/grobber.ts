@@ -50,6 +50,14 @@ class Grobber<Vars extends UntypedVars = UntypedVars> {
 
     return registration.fn
   }
+
+  public start<V extends Vars>(input: string, vars?: V) {
+
+  }
+
+  public _internal_wireup(grob: Grob) {
+
+  }
 }
 
 export { Grobber }

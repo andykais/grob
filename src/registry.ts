@@ -24,6 +24,7 @@ interface CompiledGrobber {
   definition: InputTypes['GrobberDefinition']
   main_filepath: InputTypes['Filepath']
   main: GrobMain
+  worker_controller?: WorkerController
 }
 
 type PersistentRegistry = Record<InputTypes['GrobName'], {
@@ -136,6 +137,9 @@ class GrobberRegistry {
   }
 
   public close() {
+    for (const grobber of this.registry.values()) {
+      grobber.worker_controller?.stop()
+    }
     this.registry_grob.close()
   }
 
@@ -150,17 +154,18 @@ class GrobberRegistry {
   }
 
   private async launch_grobber(input: string, grobber: CompiledGrobber, options: WorkerControllerOptions | undefined) {
-    const sanitized_folder_name = input.replaceAll('/', '_')
+    if (!grobber.worker_controller) {
+      const sanitized_folder_name = input.replaceAll('/', '_')
 
-    const download_folder = grobber.definition.folder
-      ? path.join(this.download_folder, grobber.definition.name, grobber.definition.folder)
-      : path.join(this.download_folder, grobber.definition.name, sanitized_folder_name)
+      const download_folder = grobber.definition.folder
+        ? path.join(this.download_folder, grobber.definition.name, grobber.definition.folder)
+        : path.join(this.download_folder, grobber.definition.name, sanitized_folder_name)
 
-    await Deno.mkdir(download_folder, { recursive: true })
-    const worker_controller = new WorkerController(download_folder, grobber, options)
+      await Deno.mkdir(download_folder, { recursive: true })
+      grobber.worker_controller = new WorkerController(download_folder, grobber, options)
+    }
 
-    return worker_controller.start(input)
-
+    return grobber.worker_controller.start(input)
   }
 }
 

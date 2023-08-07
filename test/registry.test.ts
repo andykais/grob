@@ -139,13 +139,21 @@ test.only('registry multiple entrypoints', async t => {
   const grobbers = new GrobberRegistry({ download_folder: t.artifacts_folder })
 
   // await grobbers.register('./examples/imgur.com/grob.yml')
-  await grobbers.register('../grob/examples/tumblr.com/grob.yml')
+  await grobbers.register('../grob/examples/artstation.com/grob.yml')
   // await grobbers.register('https://git.com/examples/imgur.com/grob.yml')
 
   // const image_file_fixture = await Deno.readFile(path.join(t.fixtures_folder, '/files/i.imgur.com/ppUDAuk.jpeg'))
   t.assert.fetch({
-    request: { url: 'https://tumblr.com/andykais' },
-    response: { body: await Deno.readTextFile(path.join(t.fixtures_folder, '/files/tumblr.com/andykais.html')) }
+    request: { url: 'https://artstation.com/dofresh' },
+    response: { body: await Deno.readTextFile(path.join(t.fixtures_folder, '/files/artstation.com/dofresh.html')) }
+  })
+  t.assert.fetch({
+    request: { url: 'https://www.artstation.com/users/dofresh/projects.json?page=1&user_id=49435'},
+    response: { body: await Deno.readTextFile(path.join(t.fixtures_folder, '/files/artstation.com/projects.json?page=1&user_id=49435'))}
+  })
+  t.assert.fetch({
+    request: { url: 'https://www.artstation.com/projects/w0yQeL.json'},
+    response: { body: await Deno.readTextFile(path.join(t.fixtures_folder, '/files/artstation.com/artwork/w0yQeL.json'))}
   })
 
   // t.assert.fetch({
@@ -153,7 +161,7 @@ test.only('registry multiple entrypoints', async t => {
   //   response: { body: image_file_fixture }
   // })
 
-  await grobbers.start('https://tumblr.com/andykais', { [Symbol.for('accept_fetch')]: true })
+  await grobbers.start('https://artstation.com/dofresh', { [Symbol.for('accept_fetch')]: true })
 
 //   let image_file
 //   let gallery_data

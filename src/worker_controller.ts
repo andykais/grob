@@ -62,11 +62,10 @@ class WorkerController {
     this.send_message(launch_message)
 
     await this.worker_complete_controller.promise
-    this.worker.terminate()
   }
 
   public stop() {
-    throw new Error('unimplemented')
+    this.worker.terminate()
   }
 
   private send_message(message: worker.MasterMessage) {

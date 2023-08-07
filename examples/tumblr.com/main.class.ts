@@ -1,9 +1,9 @@
 import { Grobber } from 'https://deno.land/x/grob/mod.ts'
 
 
-export default class TumblrGrobber {
+export default class TumblrGrobber extends Grobber {
 
-  @register(/https:\/\/tumblr.com\/.*/)
+  @Grobber.register(/https:\/\/tumblr.com\/.*/)
   async post_page(grob, input) {
     const page = await grob.fetch_html(input)
     for (const img of page.select_all('.post img')) {
@@ -11,7 +11,7 @@ export default class TumblrGrobber {
     }
   }
 
-  @register(
+  @Grobber.register(
     /https:\/\/tumblr.com\/(?<username>.*)/,
     /https:\/\/(?<username>.*)\.tumblr.com/
   )
@@ -21,7 +21,7 @@ export default class TumblrGrobber {
 
     for (const post_link of user_page.select_all('.post a')) {
       // launches the grobber
-      // await grob.start(post_link.attr('href')!)
+      await this.start(post_link.attr('href')!)
     }
   }
 }
