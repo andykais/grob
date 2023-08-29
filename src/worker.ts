@@ -88,6 +88,7 @@ const fetch_response_controllers: Record<string, PromiseController<Response>> = 
 worker_self.onmessage = async (e: MessageEvent<MasterMessage>) => {
   switch(e.data.command) {
     case 'launch': {
+      // console.log('launching', e.data.input)
       if (e.data.fetch_piping) {
         pipe_fetch()
       }
@@ -101,7 +102,10 @@ worker_self.onmessage = async (e: MessageEvent<MasterMessage>) => {
       }
 
       try {
+        // console.log('Worker::onmessage entrypoint.fn:', input)
+        // console.log('                                ', grob.download_folder)
         await entrypoint.fn(grob, input, entrypoint.vars)
+        // console.log('Worker::onmessage entrypoint.fn:', input, 'complete')
       } catch (e) {
         if (e instanceof Deno.errors.PermissionDenied) {
           send_message({
@@ -110,12 +114,13 @@ worker_self.onmessage = async (e: MessageEvent<MasterMessage>) => {
             message: e.message,
             stacktrace: e.stack
           })
-          worker_self.close()
+          // worker_self.close()
         } else {
           throw e
         }
       }
 
+      grob.close()
       send_message({ command: 'complete' })
       break
     }

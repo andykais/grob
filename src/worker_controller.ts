@@ -20,6 +20,7 @@ class WorkerController {
 
   public constructor(download_folder: string, grobber: CompiledGrobber, options?: WorkerControllerOptions) {
     this.accept_fetch = options?.[accept_fetch_symbol] ?? false
+    // console.log('WorkerController::', download_folder)
     this.download_folder = download_folder
     this.grobber = grobber
     this.worker = new Worker(new URL('./worker.ts', import.meta.url), {
@@ -49,7 +50,12 @@ class WorkerController {
   }
 
   public async start(input: string) {
+    // TODO FIXME: this is a shim to be able to run the worker with back to back launches
+    // the real solution involves passing a `launch_id` along with every message,
+    // and tying a worker_complete_controller to a map of launch ids
+    this.worker_complete_controller = new PromiseController()
 
+    // console.log('WorkerController::start this.download_folder', this.download_folder)
     const launch_message: worker.MasterMessageLaunch = {
       command: 'launch',
       fetch_piping: this.accept_fetch,
@@ -61,7 +67,9 @@ class WorkerController {
     }
     this.send_message(launch_message)
 
+    // console.log('awaiting worer complete promise...')
     await this.worker_complete_controller.promise
+    // console.log('completed')
   }
 
   public stop() {

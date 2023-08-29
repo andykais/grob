@@ -73,6 +73,7 @@ class Grob {
   }
 
   public close() {
+    // console.log('Grob::close')
     this.queue.close()
     this.db.close()
   }
@@ -122,7 +123,9 @@ class Grob {
 
   public async fetch_file(url: string, fetch_options?: RequestInit, grob_options?: GrobOptions & { filepath?: string }): Promise<string> {
     const filename = path.basename(url).replace(/\?.*/, '')
-    const generated_filepath = path.join(this.files_folder, crypto.randomUUID(), filename)
+    // use date times so the folders contain some semblence of order by download
+    const folder_name = `${Date.now()}-${crypto.randomUUID().replace(/-.*/, '')}`
+    const generated_filepath = path.join(this.files_folder, folder_name, filename)
     const filepath = grob_options?.filepath ?? generated_filepath
     const response = await this.fetch_internal(url, fetch_options, {read: false, write: filepath}) as { filepath: string } & GrobResponse
     return response.filepath
@@ -136,6 +139,8 @@ class Grob {
     const expires_on = grob_options.expires_on
     const read = grob_options.read ?? true
     const write = grob_options.write ?? undefined
+
+    // console.log('Grob::fetch_internal', url)
 
 
     const headers = {...this.default_headers}
@@ -162,7 +167,9 @@ class Grob {
     this.runtime_cache.set(serialized_request, fetch_promise)
 
     this.stats.fetch_count++
+    // console.log('Grob::fetch_internal await fetch_promise', url)
     const response = await fetch_promise
+    // console.log('Grob::fetch_internal await fetch_promise', url, 'complete')
 
     const response_headers = response.headers
     let response_body
@@ -176,9 +183,11 @@ class Grob {
       const response_body_folder = path.dirname(response_body_filepath)
       const response_body_folder_temp = path.join(this.files_temp_folder, crypto.randomUUID())
       const response_body_filepath_temp = path.join(response_body_folder_temp, path.basename(response_body_filepath) + '.down')
+      // console.log('Grob::fetch_internal write', response_body_folder_temp)
       await Deno.mkdir(response_body_folder_temp)
       // we _may_ error here on a file name clash, but thats more of a user error than anything
       const file = await Deno.open(response_body_filepath_temp, { write: true, createNew: true })
+      // console.log('Grob::fetch_internal write', response_body_folder_temp, 'complete')
 
       // const content_length = parseInt(response.headers.get('content-length')!)
       // let progress = 0
@@ -194,8 +203,11 @@ class Grob {
     }
 
     if (cache)  {
+      // console.log('Grob::fetch_internal db.insert_response', url)
+      // console.log('Grob::fetch_internal db.insert_response db path', this.db.database_filepath)
       this.db.insert_response(request, response_headers, response_body, response_body_filepath, { expires_on })
       this.runtime_cache.delete(serialized_request)
+      // console.log('Grob::fetch_internal db.insert_response', url, 'complete')
     }
 
     const grob_response = new GrobResponse(response_body, response)

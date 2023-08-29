@@ -154,16 +154,22 @@ class GrobberRegistry {
   }
 
   private async launch_grobber(input: string, grobber: CompiledGrobber, options: WorkerControllerOptions | undefined) {
-    if (!grobber.worker_controller) {
+    if (grobber.worker_controller) {
+      // TODO temp code to get controller running multiple times
+      grobber.worker_controller.stop()
+    }
+    // if (!grobber.worker_controller) {
       const sanitized_folder_name = input.replaceAll('/', '_')
 
       const download_folder = grobber.definition.folder
         ? path.join(this.download_folder, grobber.definition.name, grobber.definition.folder)
         : path.join(this.download_folder, grobber.definition.name, sanitized_folder_name)
 
+      // console.log('GrobRegistry::launch_grobber input:', input)
+      // console.log('GrobRegistry::launch_grobber download_folder:', download_folder)
       await Deno.mkdir(download_folder, { recursive: true })
       grobber.worker_controller = new WorkerController(download_folder, grobber, options)
-    }
+    // }
 
     return grobber.worker_controller.start(input)
   }

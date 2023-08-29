@@ -51,6 +51,7 @@ class RateLimitQueue<T> {
   }
 
   public close() {
+    // console.log('Queue::close')
     if (this.queue.length) {
       throw new Error(`queue was stopped with ${this.queue.length} remaining tasks`)
     }
@@ -74,6 +75,7 @@ class RateLimitQueue<T> {
   private schedule = () => {
     if (this.queue.length === 0) return
 
+    // console.log('Queue::schedule queue.length', this.queue.length)
     const current_second = this.current_second()
 
     const acceptable_concurrency = this.active_tasks < this.concurrent_limit
@@ -88,6 +90,7 @@ class RateLimitQueue<T> {
       } else {
         this.last_enqueue = { rate: 1, second: current_second }
       }
+      // console.log('Queue::schedule task()')
       task()
         .then(v => {
           this.active_tasks --
