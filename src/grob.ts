@@ -121,10 +121,14 @@ class Grob {
     return new Htmlq(html_text)
   }
 
-  public async fetch_file(url: string, fetch_options?: RequestInit, grob_options?: GrobOptions & { filepath?: string }): Promise<string> {
+  public async fetch_file(url: string, fetch_options?: RequestInit, grob_options?: GrobOptions & { filepath?: string; folder_prefix?: string; }): Promise<string> {
+    if (grob_options?.folder_prefix && grob_options.filepath) {
+      throw new Error('Cannot specify both `filepath` and `folder_prefix` options')
+    }
     const filename = path.basename(url).replace(/\?.*/, '')
+    const folder_prefix = grob_options?.folder_prefix ?? ''
     // use date times so the folders contain some semblence of order by download
-    const folder_name = `${Date.now()}-${crypto.randomUUID().replace(/-.*/, '')}`
+    const folder_name = `${folder_prefix}${Date.now()}-${crypto.randomUUID().replace(/-.*/, '')}`
     const generated_filepath = path.join(this.files_folder, folder_name, filename)
     const filepath = grob_options?.filepath ?? generated_filepath
     const response = await this.fetch_internal(url, fetch_options, {read: false, write: filepath}) as { filepath: string } & GrobResponse

@@ -68,6 +68,26 @@ test('grob file cache', async t => {
   grob.close()
 })
 
+test('grob file folder prefix', async t => {
+  const grob = new Grob({ download_folder: t.artifacts_folder })
+
+  t.assert.fetch({
+    request: {
+      url: 'https://search.brave.com/index.html'
+    },
+    response: {
+      body: 'save to file please',
+    }
+  })
+
+  const filepath = await grob.fetch_file('https://search.brave.com/index.html', {}, { folder_prefix: 'foobar-'})
+  await t.assert.file_contents(filepath, 'save to file please')
+  t.assert.equals(path.basename(filepath), 'index.html')
+  t.assert.equals(path.basename(path.dirname(filepath)).startsWith('foobar-'), true)
+
+  grob.close()
+})
+
 test('grob cookies', async t => {
   const grob = new Grob({ download_folder: t.artifacts_folder })
 
