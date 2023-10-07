@@ -13,6 +13,9 @@ interface GrobConfig {
 }
 interface GrobOptions {
   cache?: boolean
+  ignore?: {
+    headers?: string[]
+  }
   expires_on?: Date
 }
 
@@ -152,22 +155,29 @@ class Grob {
       headers[name] = value
     }
 
-    const request = { url, headers, body: fetch_options?.body }
-    const serialized_request = JSON.stringify(request)
+    const request_record = { url, headers, body: fetch_options?.body }
+    if (grob_options.ignore?.headers) {
+      request_record.headers = {...request_record.headers}
+      for (const header_name of grob_options.ignore.headers) {
+        delete request_record.headers[header_name]
+      }
+    }
+    const serialized_request = JSON.stringify(request_record)
 
     if (cache) {
-      const persistent_response = this.db.select_request(request)
+      const persistent_response = this.db.select_request(request_record)
       if (persistent_response) {
         this.stats.cache_count++
         return persistent_response
       }
 
-      if (this.runtime_cache.has(serialized_request)) {
-        return await this.runtime_cache.get(serialized_request)!
+      const runtime_cache_response = this.runtime_cache.get(serialized_request)
+      if (runtime_cache_response) {
+        return await runtime_cache_response
       }
     }
 
-    const fetch_promise = this.queue.enqueue(() => fetch(url, { headers, body: request.body }))
+    const fetch_promise = this.queue.enqueue(() => fetch(url, { headers, body: fetch_options?.body }))
     this.runtime_cache.set(serialized_request, fetch_promise)
 
     this.stats.fetch_count++
@@ -209,7 +219,7 @@ class Grob {
     if (cache)  {
       // console.log('Grob::fetch_internal db.insert_response', url)
       // console.log('Grob::fetch_internal db.insert_response db path', this.db.database_filepath)
-      this.db.insert_response(request, response_headers, response_body, response_body_filepath, { expires_on })
+      this.db.insert_response(request_record, response_headers, response_body, response_body_filepath, { expires_on })
       this.runtime_cache.delete(serialized_request)
       // console.log('Grob::fetch_internal db.insert_response', url, 'complete')
     }

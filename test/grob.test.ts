@@ -180,3 +180,36 @@ test('grob html', async t => {
 
   grob.close()
 })
+
+test('grob grob_options.ignore.headers', async t => {
+  const grob = new Grob({ download_folder: t.artifacts_folder })
+
+  t.assert.fetch({ request: { url: 'https://example.com' }, response: { body: 'foo' } })
+
+  const response_1 = await grob.fetch_text('https://example.com', {
+    headers: {
+      'cookie': 'x-csrf-token=abc123'
+    }
+  }, {
+    ignore: {
+      headers: ['cookie']
+    }
+  })
+  t.assert.equals(response_1, 'foo')
+
+  // second response is cached
+  const response_2 = await grob.fetch_text('https://example.com', {
+    headers: {
+      'cookie': 'x-csrf-token=def567'
+    }
+  }, {
+    ignore: {
+      headers: ['cookie']
+    }
+  })
+  t.assert.equals(response_2, 'foo')
+
+
+  grob.close()
+
+})
