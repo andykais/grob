@@ -34,6 +34,10 @@ interface GrobStats {
   cache_count: number
 }
 
+interface FetchOptions extends RequestInit {
+  client?: Deno.HttpClient
+}
+
 
 const DEFAULT_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; rv:102.0) Gecko/20100101 Firefox/102.0'
@@ -81,7 +85,7 @@ class Grob {
     this.db.close()
   }
 
-  public async fetch_headers(url: string, fetch_options?: RequestInit, grob_options?: GrobOptions) {
+  public async fetch_headers(url: string, fetch_options?: FetchOptions, grob_options?: GrobOptions) {
     const response = await this.fetch_internal(
       url,
       fetch_options,
@@ -91,12 +95,12 @@ class Grob {
     return response.headers
   }
 
-  public async fetch_cookies(url: string, fetch_options?: RequestInit, grob_options?: GrobOptions) {
+  public async fetch_cookies(url: string, fetch_options?: FetchOptions, grob_options?: GrobOptions) {
     const response_headers = await this.fetch_headers(url, fetch_options, grob_options)
     return getSetCookies(response_headers)
   }
 
-  public async fetch_json(url: string, fetch_options?: RequestInit, grob_options?: GrobOptions) {
+  public async fetch_json(url: string, fetch_options?: FetchOptions, grob_options?: GrobOptions) {
     const response = await this.fetch_internal(
       url,
       fetch_options,
@@ -105,7 +109,7 @@ class Grob {
     return await response.json()
   }
 
-  public async fetch_text(url: string, fetch_options?: RequestInit, grob_options?: GrobOptions) {
+  public async fetch_text(url: string, fetch_options?: FetchOptions, grob_options?: GrobOptions) {
     const response = await this.fetch_internal(
       url,
       fetch_options,
@@ -114,7 +118,7 @@ class Grob {
     return await response.text()
   }
 
-  public async fetch_html(url: string, fetch_options?: RequestInit, grob_options?: GrobOptions) {
+  public async fetch_html(url: string, fetch_options?: FetchOptions, grob_options?: GrobOptions) {
     const response = await this.fetch_internal(
       url,
       fetch_options,
@@ -124,7 +128,7 @@ class Grob {
     return new Htmlq(html_text)
   }
 
-  public async fetch_file(url: string, fetch_options?: RequestInit, grob_options?: GrobOptions & { filepath?: string; folder_prefix?: string; }): Promise<string> {
+  public async fetch_file(url: string, fetch_options?: FetchOptions, grob_options?: GrobOptions & { filepath?: string; folder_prefix?: string; }): Promise<string> {
     if (grob_options?.folder_prefix && grob_options.filepath) {
       throw new Error('Cannot specify both `filepath` and `folder_prefix` options')
     }
@@ -140,7 +144,7 @@ class Grob {
 
   private async fetch_internal<T>(
     url: string,
-    fetch_options: RequestInit | undefined,
+    fetch_options: FetchOptions | undefined,
     grob_options: GrobOptionsInternal): Promise<GrobResponse> {
     const cache = grob_options.cache ?? true
     const expires_on = grob_options.expires_on
@@ -151,7 +155,13 @@ class Grob {
 
 
     const headers = {...this.default_headers}
-    for (const [name, value] of Object.entries(fetch_options?.headers ?? {})) {
+    const headers_iterable =
+      fetch_options?.headers instanceof Headers
+        ? fetch_options.headers.entries()
+        : fetch_options?.headers !== undefined
+          ? Object.entries(fetch_options.headers)
+          : []
+    for (const [name, value] of headers_iterable) {
       headers[name] = value
     }
 
@@ -177,7 +187,7 @@ class Grob {
       }
     }
 
-    const fetch_promise = this.queue.enqueue(() => fetch(url, { headers, body: fetch_options?.body }))
+    const fetch_promise = this.queue.enqueue(() => fetch(url, { ...fetch_options, headers, body: fetch_options?.body }))
     this.runtime_cache.set(serialized_request, fetch_promise)
 
     this.stats.fetch_count++

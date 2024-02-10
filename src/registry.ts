@@ -9,10 +9,7 @@ import type { Grobber } from './grobber.ts'
 
 type InputTypes = { [K in keyof typeof input]: z.infer<(typeof input)[K]> }
 
-interface GrobMain {
-  grobber: Grobber
-}
-
+type GrobMain = InputTypes['GrobMain']
 type GrobberDefinition = InputTypes['GrobberDefinition']
 
 interface GrobberRegistryConfig {
@@ -102,6 +99,13 @@ class GrobberRegistry {
       } else {
         throw new Error(`unexpected registration type ${registration_type}`)
       }
+    }
+
+    // validate grobber program
+    try {
+      input.GrobMain.parse(program)
+    } catch (e) {
+      throw new Error(`Invalid grobber ${grobber_definition.name}:`, { cause: e })
     }
 
     this.registry.set(grobber_definition.name, {

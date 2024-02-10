@@ -58,6 +58,10 @@ class Grobber<Vars extends UntypedVars = UntypedVars> {
   public _internal_wireup(grob: Grob) {
 
   }
+
+  public get entrypoints() {
+    return this.#entrypoints
+  }
 }
 
 export { Grobber }

@@ -23,15 +23,26 @@ class WorkerController {
     // console.log('WorkerController::', download_folder)
     this.download_folder = download_folder
     this.grobber = grobber
+    const permissions: Deno.PermissionOptions = {
+      // download_folder must be an absolute path to work when this module is imported remotely
+      read: [download_folder],
+      write: [download_folder],
+    }
+    if (grobber.definition.permissions) {
+      // there is possibly a better pattern to explicitly say ANY network access is allowed
+      permissions.net = grobber.definition.permissions
+    } else {
+      permissions.net = 'inherit'
+    }
     this.worker = new Worker(new URL('./worker.ts', import.meta.url), {
       type: 'module',
       deno: {
-        permissions: {
-          // download_folder must be an absolute path to work when this module is imported remotely
-          read: [download_folder],
-          write: [download_folder],
-          net: grobber.definition.permissions,
-        }
+        permissions: permissions,
+        // permissions: {
+        //   read: [download_folder],
+        //   write: [download_folder],
+        //   net: grobber.definition.permissions,
+        // }
       }
     })
     this.worker_complete_controller = new PromiseController()

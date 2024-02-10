@@ -1,5 +1,6 @@
 import { z } from './deps.ts'
 import { Grob } from './grob.ts'
+import { Grobber } from './grobber.ts'
 
 export const URLString = z.string()
 export const Filepath = z.string()
@@ -33,4 +34,10 @@ export const GrobberDefinition = z.object({
   depends_on: GrobberRegistration.array().optional(),
   headers: Headers.optional(),
   main: GrobberRegistration,
+})
+
+export const GrobMain = z.object({
+  grobber: z.instanceof(Grobber).refine(grobber => {
+    return grobber.entrypoints.length > 0
+  }, 'Grobber must register at least one entrypoint'),
 })
