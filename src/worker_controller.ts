@@ -16,17 +16,19 @@ class WorkerController {
   worker_complete_controller: PromiseController<void>
   grobber: CompiledGrobber
   download_folder: string
+  database_folder: string
   accept_fetch: boolean
 
-  public constructor(download_folder: string, grobber: CompiledGrobber, options?: WorkerControllerOptions) {
+  public constructor(download_folder: string, database_folder: string, grobber: CompiledGrobber, options?: WorkerControllerOptions) {
     this.accept_fetch = options?.[accept_fetch_symbol] ?? false
     // console.log('WorkerController::', download_folder)
     this.download_folder = download_folder
+    this.database_folder = database_folder
     this.grobber = grobber
     const permissions: Deno.PermissionOptions = {
       // download_folder must be an absolute path to work when this module is imported remotely
-      read: [download_folder],
-      write: [download_folder],
+      read: [download_folder, database_folder],
+      write: [download_folder, database_folder],
     }
     if (grobber.definition.permissions) {
       // there is possibly a better pattern to explicitly say ANY network access is allowed
@@ -71,6 +73,7 @@ class WorkerController {
       command: 'launch',
       fetch_piping: this.accept_fetch,
       grobber_definition: this.grobber.definition,
+      database_folder: this.database_folder,
       grobber_folder: this.download_folder,
       grobber_name: this.grobber.definition.name,
       main_filepath: this.grobber.main_filepath,
@@ -83,8 +86,16 @@ class WorkerController {
     // console.log('completed')
   }
 
-  public stop() {
-    this.worker.terminate()
+  public async stop() {
+    console.log('WorkerController::stop')
+    this.send_message({ command: 'shutdown' })
+    // lets give it 100ms to shutdown gracefully
+    return new Promise<void>(resolve => {
+      setTimeout(() => {
+        this.worker.terminate()
+        resolve()
+      }, 100)
+    })
   }
 
   private send_message(message: worker.MasterMessage) {

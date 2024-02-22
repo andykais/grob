@@ -1,4 +1,4 @@
-import { Grobber } from 'https://deno.land/x/grob/mod.ts'
+import { Grobber, type Grob } from 'https://deno.land/x/grob/mod.ts'
 import * as z from 'npm:zod@3.21'
 
 
@@ -14,14 +14,14 @@ const Posts = z.object({
 })
 
 
-async function post_page(grob, input) {
-  const page = await grob.fetch_html(input)
-  for (const img of page.select_all('.post img')) {
-    await grob.fetch_file(img.attr('href')!)
-  }
+async function post_page(grob: Grob, input: string) {
+  const page = await grob.fetch_html(input + '.json')
+  // for (const img of page.select_all('.post img')) {
+  //   await grob.fetch_file(img.attr('href')!)
+  // }
 }
 
-async function user_page(grob, input, vars) {
+async function user_page(grob: Grob, input: string, vars: { username: string }) {
   const { username } = vars
   console.log({ username })
   const user_page = await grob.fetch_html(`https://artstation.com/${username}`)
@@ -39,17 +39,23 @@ async function user_page(grob, input, vars) {
   for (const post_data of posts.data) {
 
     // launches the grobber
-    await grobber.start(`https://artstation.com/artwork/${post_data.hash_id}`)
+    // TODO
+    // await grobber.start(`https://artstation.com/artwork/${post_data.hash_id}`)
+    await post_page(grob, `https://artstation.com/artwork/${post_data.hash_id}`)
     break
   }
 }
 
 
 export const grobber = new Grobber<{ username: string }>()
+
+grobber
   .register({
     match: /https:\/\/www.artstation.com\/artwork\/.*/,
     fn: post_page,
   })
+
+grobber
   .register({
     match: /https:\/\/artstation.com\/(?<username>[^\/]*)/,
     fn: user_page,

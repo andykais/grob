@@ -52,7 +52,7 @@ class Grobber<Vars extends UntypedVars = UntypedVars> {
   }
 
   public start<V extends Vars>(input: string, vars?: V) {
-
+    throw new Error('unimplemented')
   }
 
   public _internal_wireup(grob: Grob) {

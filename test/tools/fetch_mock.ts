@@ -71,7 +71,7 @@ class FetchMock {
       request: promise_controller.promise,
       remove: () => {
         const index = this.expectations.findIndex(e => e.live_expectation === live_expectation)
-        if (index === -1) throw new Error('fetch expectation has already been fulfilled')
+        if (index === -1) throw new Error('fetch expectation not found (it has perhaps already been fulfilled)')
         this.expectations.splice(index, 1)
       }
     }

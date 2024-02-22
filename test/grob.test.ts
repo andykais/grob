@@ -7,7 +7,7 @@ test('grob basic cached', async t => {
   const grob = new Grob({ download_folder: t.artifacts_folder })
   t.assert.fetch({
     request: {
-      url: 'https://search.brave.com'
+      url: 'https://search.brave.com/'
     },
     response: {
       body: 'yo',
@@ -29,7 +29,7 @@ test('grob basic cached', async t => {
 
   t.assert.fetch({
     request: {
-      url: 'https://search.brave.com',
+      url: 'https://search.brave.com/',
       headers: {'accept': 'json'}
     },
     response: {
@@ -93,7 +93,7 @@ test('grob cookies', async t => {
 
   t.assert.fetch({
     request: {
-      url: 'https://search.brave.com',
+      url: 'https://search.brave.com/',
     },
     response: {
       body: 'save to file please',
@@ -119,8 +119,8 @@ test('grob cache ttl', async t => {
 
   const grob = new Grob({ download_folder: t.artifacts_folder })
 
-  t.assert.fetch({ request: { url: 'https://example.com' }, response: { body: 'foo' } })
-  t.assert.fetch({ request: { url: 'https://example.com' }, response: { body: 'bar' } })
+  t.assert.fetch({ request: { url: 'https://example.com/' }, response: { body: 'foo' } })
+  t.assert.fetch({ request: { url: 'https://example.com/' }, response: { body: 'bar' } })
   const expires_on = new Date()
   expires_on.setDate(expires_on.getDate() + 1)
   const response_1 = await grob.fetch_text('https://example.com', {}, { expires_on })
@@ -141,7 +141,7 @@ test('grob html', async t => {
   const grob = new Grob({ download_folder: t.artifacts_folder })
 
   t.assert.fetch({
-    request: { url: 'https://search.brave.com' },
+    request: { url: 'https://search.brave.com/' },
     response: {
       body: `<html>
       <body>
@@ -184,7 +184,7 @@ test('grob html', async t => {
 test('grob grob_options.ignore.headers', async t => {
   const grob = new Grob({ download_folder: t.artifacts_folder })
 
-  t.assert.fetch({ request: { url: 'https://example.com' }, response: { body: 'foo' } })
+  t.assert.fetch({ request: { url: 'https://example.com/' }, response: { body: 'foo' } })
 
   const response_1 = await grob.fetch_text('https://example.com', {
     headers: {
@@ -212,4 +212,19 @@ test('grob grob_options.ignore.headers', async t => {
 
   grob.close()
 
+})
+
+test('grob validate response.status', async t => {
+  const grob = new Grob({ download_folder: t.artifacts_folder })
+
+  const expectation = t.assert.fetch({ request: { url: 'https://example.com/' }, response: { status_code: 500, body: 'Internal server error' } })
+  await t.assert.rejects(() => grob.fetch_text('https://example.com', {}, {validate: { status: [200] }}))
+
+  t.assert.fetch({ request: { url: 'https://example.com/' }, response: { status_code: 200, body: '<html></html>' } })
+  // TODO this is broken currently because it returns the 500 response. the 'proper' workflow here involves a way to remove/invalidate old requests. This is what the @retry decorator will do
+  // const response = await grob.fetch_text('https://example.com', {}, {validate: { status: [200] }})
+  const response = await grob.fetch_text('https://example.com', {}, {validate: { status: [200] }, cache: false })
+  t.assert.equals(response, '<html></html>')
+
+  grob.close()
 })

@@ -152,7 +152,7 @@ test.only('registry multiple entrypoints', async t => {
     response: { body: await Deno.readTextFile(path.join(t.fixtures_folder, '/files/artstation.com/projects.json?page=1&user_id=49435'))}
   })
   t.assert.fetch({
-    request: { url: 'https://www.artstation.com/projects/w0yQeL.json'},
+    request: { url: 'https://artstation.com/artwork/w0yQeL.json'},
     response: { body: await Deno.readTextFile(path.join(t.fixtures_folder, '/files/artstation.com/artwork/w0yQeL.json'))}
   })
 
@@ -177,5 +177,5 @@ test.only('registry multiple entrypoints', async t => {
 //   t.assert.equals(gallery_data.title, `"What do you mean you don't know what that is?!"`)
 //   t.assert.equals(gallery_data.media.length, 1)
 
-  grobbers.close()
+  await grobbers.close()
 })

@@ -10,6 +10,7 @@ interface GrobConfig {
   download_folder?: Filepath
   headers?: Record<string, string>
   throttle?: RateLimitQueueConfig
+  database?: GrobDatabase
 }
 interface GrobOptions {
   cache?: boolean
@@ -17,6 +18,9 @@ interface GrobOptions {
     headers?: string[]
   }
   expires_on?: Date
+  validate?: {
+    status?: number[]
+  }
 }
 
 interface GrobOptionsInternal extends GrobOptions {
@@ -47,6 +51,12 @@ class GrobResponse extends Response {
   filepath?: string
 }
 
+class HttpError extends Error {
+  public constructor(public request: Request, public response: Response, message?: string) {
+    super(message)
+  }
+}
+
 class Grob {
   public config: GrobConfig
   public download_folder: string
@@ -73,7 +83,7 @@ class Grob {
       else throw e
     }
     Deno.mkdirSync(this.files_temp_folder, { recursive: true })
-    this.db = new GrobDatabase(this.download_folder)
+    this.db = config?.database ?? new GrobDatabase(this.download_folder)
     this.queue = new RateLimitQueue(this.config.throttle)
     this.runtime_cache = new Map()
     this.stats = { fetch_count: 0, cache_count: 0 }
@@ -82,7 +92,10 @@ class Grob {
   public close() {
     // console.log('Grob::close')
     this.queue.close()
-    this.db.close()
+    if (!this.config.database) {
+      // if the database was supplied from outside this class instance, we shouldnt close it
+      this.db.close()
+    }
   }
 
   public async fetch_headers(url: string, fetch_options?: FetchOptions, grob_options?: GrobOptions) {
@@ -151,8 +164,6 @@ class Grob {
     const read = grob_options.read ?? true
     const write = grob_options.write ?? undefined
 
-    // console.log('Grob::fetch_internal', url)
-
 
     const headers = {...this.default_headers}
     const headers_iterable =
@@ -173,26 +184,29 @@ class Grob {
       }
     }
     const serialized_request = JSON.stringify(request_record)
+    const request = new Request(url, { ...fetch_options, headers, body: fetch_options?.body })
 
     if (cache) {
       const persistent_response = this.db.select_request(request_record)
       if (persistent_response) {
         this.stats.cache_count++
-        return persistent_response
+        return this.validate_response(grob_options, request, persistent_response)
       }
 
       const runtime_cache_response = this.runtime_cache.get(serialized_request)
       if (runtime_cache_response) {
-        return await runtime_cache_response
+        const response = await runtime_cache_response
+        return this.validate_response(grob_options, request, response)
       }
     }
 
-    const fetch_promise = this.queue.enqueue(() => fetch(url, { ...fetch_options, headers, body: fetch_options?.body }))
+    const fetch_promise = this.queue.enqueue(() => fetch(request))
     this.runtime_cache.set(serialized_request, fetch_promise)
 
     this.stats.fetch_count++
     // console.log('Grob::fetch_internal await fetch_promise', url)
     const response = await fetch_promise
+
     // console.log('Grob::fetch_internal await fetch_promise', url, 'complete')
 
     const response_headers = response.headers
@@ -229,14 +243,26 @@ class Grob {
     if (cache)  {
       // console.log('Grob::fetch_internal db.insert_response', url)
       // console.log('Grob::fetch_internal db.insert_response db path', this.db.database_filepath)
-      this.db.insert_response(request_record, response_headers, response_body, response_body_filepath, { expires_on })
+      this.db.insert_response(request_record, response.status, response_headers, response_body, response_body_filepath, { expires_on })
       this.runtime_cache.delete(serialized_request)
       // console.log('Grob::fetch_internal db.insert_response', url, 'complete')
     }
 
+    this.validate_response(grob_options, request, response)
     const grob_response = new GrobResponse(response_body, response)
     grob_response.filepath = write
+    // TODO attach cache/fetch stats to GrobResponse. This will become important when we have multiple scoped grobs built off the same grob base
+    // we still want them to share the same queue so this is how we will track stats differently
     return grob_response
+  }
+
+  private validate_response(grob_options: GrobOptions, request: Request, response: Response): Response {
+    if (grob_options.validate?.status) {
+      if (!grob_options.validate.status.includes(response.status)) {
+        throw new HttpError(request, response, `request ${request.url} failed. Response status ${response.status} not in expected statuses: [${grob_options.validate.status}]`)
+      }
+    }
+    return response
   }
 }
 
