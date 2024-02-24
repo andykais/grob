@@ -28,7 +28,9 @@ interface MockExpectation {
 }
 
 
-class FetchMockNotFound extends Error {}
+class FetchMockNotFound extends Error {
+  name = 'FetchMockNotFound'
+}
 
 
 class FetchMock {

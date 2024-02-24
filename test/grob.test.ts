@@ -1,10 +1,11 @@
 import { Grob } from '../mod.ts'
 import { path } from './tools/deps.ts'
-import { test } from './tools/test.ts'
+import { test, FetchMockNotFound } from './tools/test.ts'
 
 
 test('grob basic cached', async t => {
-  const grob = new Grob({ download_folder: t.artifacts_folder })
+  using grob = new Grob({ download_folder: t.artifacts_folder })
+
   t.assert.fetch({
     request: {
       url: 'https://search.brave.com/'
@@ -23,9 +24,9 @@ test('grob basic cached', async t => {
   t.assert.equals(text_2, 'yo')
 
   // this response has no mock set up
-  t.assert.fetch_mock_not_found(() => grob.fetch_text('https://search.brave.com/foo'))
+  await t.assert.rejects(() => grob.fetch_text('https://search.brave.com/foo'), FetchMockNotFound)
   // failures like this will not get stored in the peristent db
-  t.assert.fetch_mock_not_found(() => grob.fetch_text('https://search.brave.com/foo'))
+  await t.assert.rejects(() => grob.fetch_text('https://search.brave.com/foo'), FetchMockNotFound)
 
   t.assert.fetch({
     request: {
@@ -42,8 +43,6 @@ test('grob basic cached', async t => {
   // this response is cached
   const json_2 = await grob.fetch_json('https://search.brave.com', { headers: {'accept': 'json'} })
   t.assert.equals(json_2, { hello: 'world' })
-
-  grob.close()
 })
 
 test('grob file cache', async t => {
@@ -227,4 +226,43 @@ test('grob validate response.status', async t => {
   t.assert.equals(response, '<html></html>')
 
   grob.close()
+})
+
+test('grob parallel fetch_file', async t => {
+  using grob = new Grob({ download_folder: t.artifacts_folder })
+  const fetch_controller = Promise.withResolvers<Response>()
+
+  t.assert.fetch({ request: { url: 'https://s3.com/myfile' }, response: fetch_controller.promise })
+
+  // this first request does a normal network request
+  const filepath_1_promise = grob.fetch_file('https://s3.com/myfile')
+  await new Promise(resolve => setTimeout(resolve, 100))
+  // this second response should hit the runtime cache
+  const filepath_2_promise = grob.fetch_file('https://s3.com/myfile')
+
+  fetch_controller.resolve(new Response('foobar'))
+  const filepath_1 = await filepath_1_promise
+  await t.assert.file_contents(filepath_1, 'foobar')
+  const filepath_2 = await filepath_2_promise
+  await t.assert.file_contents(filepath_2, 'foobar')
+  // NOTE this may change in the future, this is just an assertion of the existing behavior
+  // (e.g. if there is a cache hit on fetch_file, we will return the existing filepath, not copy the file to a new path)
+  t.assert.equals(filepath_1, filepath_2)
+})
+
+test('grob parallel fetch_file with explicit filepath', async t => {
+  using grob = new Grob({ download_folder: t.artifacts_folder })
+  const fetch_controller = Promise.withResolvers<Response>()
+
+  t.assert.fetch({ request: { url: 'https://s3.com/myfile' }, response: fetch_controller.promise })
+
+  // this first request does a normal network request
+  const filepath_1_promise = grob.fetch_file('https://s3.com/myfile')
+  // this second response should hit the runtime cache
+  const filepath_2_promise = grob.fetch_file('https://s3.com/myfile', {}, { filepath: path.join(t.artifacts_folder, 'some', 'custom', 'path') })
+  fetch_controller.resolve(new Response('foobar'))
+  await t.assert.rejects(() => filepath_2_promise)
+
+  const filepath_1 = await filepath_1_promise
+  await t.assert.file_contents(filepath_1, 'foobar')
 })

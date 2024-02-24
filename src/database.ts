@@ -37,14 +37,13 @@ class GrobDatabase {
   public constructor(download_folder: string) {
     this.download_folder = download_folder
     this.database_filepath = `${download_folder}/requests.db`
-    console.log('Opening', this.database_filepath)
     this.db = new sqlite.DB(this.database_filepath)
     this.db.query(`
       CREATE TABLE IF NOT EXISTS requests (
         id INTEGER NOT NULL PRIMARY KEY,
         request TEXT NOT NULL,
         request_non_unique_params TEXT,
-        response_status INTEGER, -- not null after we migrate this and make an assumption here
+        response_status INTEGER NOT NULL, -- not null after we migrate this and make an assumption here
         response_headers TEXT NOT NULL,
         response_body TEXT,
         response_body_filepath TEXT,
