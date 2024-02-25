@@ -160,14 +160,31 @@ class Grob {
     }
 
     const response = await this.fetch_internal(url, fetch_options, {read: false, write: filepath}) as { filepath: string } & GrobResponse
-
-    // // NOTE: we make an assumption that if there was a cache hit, and we specified a destination folder/filepath, that we want to duplicate the original file to the new destination
-    if ((grob_options?.filepath || grob_options?.folder_prefix) && response.filepath != filepath) {
-      const cached_response = await Deno.open(response.filepath, { read: true })
-      await this.write_file(cached_response.readable, filepath)
-      return filepath
-    }
     return response.filepath
+
+    // // shoot. I dont think this works. The cache is going to keep returning the cached thing, but we wont know that the updated thing has been copied
+    // // this is especially true for auto-generated filepaths
+    // // // NOTE: we make an assumption that if there was a cache hit, and we specified a destination folder/filepath, that we want to duplicate the original file to the new destination
+    // if ((grob_options?.filepath || grob_options?.folder_prefix) && response.filepath != filepath) {
+    //   throw new Error(`duplicating a cache hit from ${response.filepath} to folder prefix ${grob_options.folder_prefix} is currently unsupported`)
+
+    //   if (grob_options?.filepath && response.filepath != filepath) {
+    //     const cached_response = await Deno.open(response.filepath, { read: true })
+    //     if (true) throw new Error('copying file...')
+    //     await this.write_file(cached_response.readable, filepath)
+    //     return filepath
+    //   } else if (grob_options.folder_prefix) {
+    //     if (response.filepath.includes(grob_options.folder_prefix)) {
+    //       // this cache hit meets the requirements of the folder prefix, so lets just return it
+    //       return response.filepath
+    //     } else {
+    //       const cached_response = await Deno.open(response.filepath, { read: true })
+    //       await this.write_file(cached_response.readable, filepath)
+    //       throw new Error(`duplicating a cache hit from ${response.filepath} to folder prefix ${grob_options.folder_prefix} is currently unsupported`)
+    //     }
+    //   }
+    // }
+    // return response.filepath
   }
 
   private async fetch_internal<T>(

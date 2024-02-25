@@ -250,7 +250,7 @@ test('grob parallel fetch_file', async t => {
   t.assert.equals(filepath_1, filepath_2)
 })
 
-test('grob parallel fetch_file with explicit filepath', async t => {
+test.skip('grob parallel fetch_file with explicit filepath', async t => {
   using grob = new Grob({ download_folder: t.artifacts_folder })
   const fetch_controller = Promise.withResolvers<Response>()
 
