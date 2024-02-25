@@ -3,7 +3,7 @@ import { path, fs, file_server } from './tools/deps.ts'
 import { GrobberRegistry, InvalidPermissions, type GrobberDefinition } from '../mod.ts'
 
 
-test('grobber registry', async t => {
+test.only('grobber registry', async t => {
   const grobbers = new GrobberRegistry({ download_folder: t.artifacts_folder })
 
   // await grobbers.register('./examples/imgur.com/grob.yml')

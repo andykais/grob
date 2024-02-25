@@ -18,6 +18,7 @@ interface Asserts {
   fetch_mock_not_found: typeof assert_fetch_mock_not_found
   rejects: typeof assert.assertRejects
   equals: typeof assert.assertEquals
+  not_equals: typeof assert.assertNotEquals
   file_contents: typeof assert_file_contents
 }
 
@@ -79,6 +80,7 @@ function test(test_name: string, fn: TestFunction, options?: TestOptions) {
         fetch_mock_not_found: assert_fetch_mock_not_found,
         rejects: assert.assertRejects,
         equals: assert.assertEquals,
+        not_equals: assert.assertNotEquals,
         file_contents: assert_file_contents,
       }
     }

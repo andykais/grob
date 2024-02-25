@@ -258,11 +258,25 @@ test('grob parallel fetch_file with explicit filepath', async t => {
 
   // this first request does a normal network request
   const filepath_1_promise = grob.fetch_file('https://s3.com/myfile')
+  t.assert.equals(grob.stats.cache_count, 0)
+  t.assert.equals(grob.stats.fetch_count, 1)
   // this second response should hit the runtime cache
-  const filepath_2_promise = grob.fetch_file('https://s3.com/myfile', {}, { filepath: path.join(t.artifacts_folder, 'some', 'custom', 'path') })
+  const fetch_file_2_filepath = path.join(t.artifacts_folder, 'some', 'custom', 'path')
+  const filepath_2_promise = grob.fetch_file('https://s3.com/myfile', {}, { filepath: fetch_file_2_filepath })
+
   fetch_controller.resolve(new Response('foobar'))
-  await t.assert.rejects(() => filepath_2_promise)
+  // await t.assert.rejects(() => filepath_2_promise)
 
   const filepath_1 = await filepath_1_promise
+  const filepath_2 = await filepath_2_promise
   await t.assert.file_contents(filepath_1, 'foobar')
+  await t.assert.file_contents(filepath_2, 'foobar')
+
+  // assert the file was actually copied to a different destination
+  t.assert.not_equals(filepath_1, filepath_2)
+  // assert the filepath is what we explicitly asked for
+  t.assert.equals(filepath_2, fetch_file_2_filepath)
+
+  t.assert.equals(grob.stats.cache_count, 1)
+  t.assert.equals(grob.stats.fetch_count, 1)
 })

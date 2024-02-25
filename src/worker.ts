@@ -38,6 +38,12 @@ type MasterMessage =
   | MasterMessageFetchResponse
   | MasterMessageShutdown
 
+interface WorkerMessageStartNew {
+  command: 'start'
+  input: string
+  vars: Record<string, any>
+}
+
 interface WorkerMessageFetch {
   command: 'fetch'
   fetch_id: string

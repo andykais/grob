@@ -1,4 +1,4 @@
-import { path, getSetCookies } from './deps.ts'
+import { path, getSetCookies, fs } from './deps.ts'
 import { GrobDatabase } from './database.ts'
 import { RateLimitQueue, type RateLimitQueueConfig } from './queue.ts'
 import { Htmlq } from './htmlq.ts'
@@ -21,6 +21,11 @@ interface GrobOptions {
   validate?: {
     status?: number[]
   }
+}
+
+interface FetchFileGrobOptions extends GrobOptions {
+  filepath?: string
+  folder_prefix?: string;
 }
 
 interface GrobOptionsInternal extends GrobOptions {
@@ -140,7 +145,7 @@ class Grob {
     return new Htmlq(html_text)
   }
 
-  public async fetch_file(url: string, fetch_options?: FetchOptions, grob_options?: GrobOptions & { filepath?: string; folder_prefix?: string; }): Promise<string> {
+  public async fetch_file(url: string, fetch_options?: FetchOptions, grob_options?: FetchFileGrobOptions): Promise<string> {
     if (grob_options?.folder_prefix && grob_options.filepath) {
       throw new Error('Cannot specify both `filepath` and `folder_prefix` options')
     }
@@ -153,10 +158,14 @@ class Grob {
       const generated_filepath = path.join(this.files_folder, folder_name, filename)
       filepath = generated_filepath
     }
+
     const response = await this.fetch_internal(url, fetch_options, {read: false, write: filepath}) as { filepath: string } & GrobResponse
 
+    // // NOTE: we make an assumption that if there was a cache hit, and we specified a destination folder/filepath, that we want to duplicate the original file to the new destination
     if ((grob_options?.filepath || grob_options?.folder_prefix) && response.filepath != filepath) {
-      throw new Error('cache hits with explicit file names are not supported')
+      const cached_response = await Deno.open(response.filepath, { read: true })
+      await this.write_file(cached_response.readable, filepath)
+      return filepath
     }
     return response.filepath
   }
@@ -193,10 +202,8 @@ class Grob {
     if (cache) {
       const runtime_cache_response = this.runtime_cache.get(serialized_request)
       if (runtime_cache_response) {
-        // TODO this doesnt return a GrobResponse, it just returns a Response
-        // I think theres actually a bigger problem here...parallel requests will think they are saving a file to two places, but currently we dont copy that ifle or anything
-        const response = await runtime_cache_response
-        return response
+        this.stats.cache_count++
+        return await runtime_cache_response
       }
 
       const persistent_response = this.db.select_request(request_record)
@@ -219,17 +226,8 @@ class Grob {
         response_body = await response.text()
       } else if (write) {
         response_body_filepath = write
-        const response_body_folder = path.dirname(response_body_filepath)
-        const response_body_folder_temp = path.join(this.files_temp_folder, crypto.randomUUID())
-        const response_body_filepath_temp = path.join(response_body_folder_temp, path.basename(response_body_filepath) + '.down')
-        await Deno.mkdir(response_body_folder_temp)
-        // we _may_ error here on a file name clash, but thats more of a user error than anything
-        const file = await Deno.open(response_body_filepath_temp, { write: true, createNew: true })
-
-        await response.body?.pipeTo(file.writable)
-        await Deno.mkdir(response_body_folder, { recursive: true })
-        await Deno.rename(response_body_folder_temp, response_body_folder)
-        await Deno.rename(path.join(response_body_folder, path.basename(response_body_filepath_temp)), response_body_filepath)
+        if (!response.body) throw new Error('unexpected response: cannot write file from a null Response::body')
+        await this.write_file(response.body, response_body_filepath)
       }
 
       if (cache)  {
@@ -253,6 +251,20 @@ class Grob {
     // // we still want them to share the same queue so this is how we will track stats differently
     const result = await fetch_promise
     return result
+  }
+
+  private async write_file(data_stream: ReadableStream<Uint8Array>, dest_filepath: string) {
+    const dest_folder = path.dirname(dest_filepath)
+    const dest_folder_temp = path.join(this.files_temp_folder, crypto.randomUUID())
+    const dest_filepath_temp = path.join(dest_folder_temp, path.basename(dest_filepath) + '.down')
+    await Deno.mkdir(dest_folder_temp)
+    // we _may_ error here on a file name clash, but thats more of a user error than anything
+    const file = await Deno.open(dest_filepath_temp, { write: true, createNew: true })
+
+    await data_stream.pipeTo(file.writable)
+    await Deno.mkdir(dest_folder, { recursive: true })
+    await Deno.rename(dest_folder_temp, dest_folder)
+    await Deno.rename(path.join(dest_folder, path.basename(dest_filepath_temp)), dest_filepath)
   }
 
   private validate_response(grob_options: GrobOptions, request: Request, response: Response): Response {
