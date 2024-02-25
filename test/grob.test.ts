@@ -258,8 +258,8 @@ test.skip('grob parallel fetch_file with explicit filepath', async t => {
 
   // this first request does a normal network request
   const filepath_1_promise = grob.fetch_file('https://s3.com/myfile')
-  t.assert.equals(grob.stats.cache_count, 0)
-  t.assert.equals(grob.stats.fetch_count, 1)
+  t.assert.equals(grob.stats.cache.count, 0)
+  t.assert.equals(grob.stats.fetch.count, 1)
   // this second response should hit the runtime cache
   const fetch_file_2_filepath = path.join(t.artifacts_folder, 'some', 'custom', 'path')
   const filepath_2_promise = grob.fetch_file('https://s3.com/myfile', {}, { filepath: fetch_file_2_filepath })
@@ -277,6 +277,37 @@ test.skip('grob parallel fetch_file with explicit filepath', async t => {
   // assert the filepath is what we explicitly asked for
   t.assert.equals(filepath_2, fetch_file_2_filepath)
 
-  t.assert.equals(grob.stats.cache_count, 1)
-  t.assert.equals(grob.stats.fetch_count, 1)
+  t.assert.equals(grob.stats.cache.count, 1)
+  t.assert.equals(grob.stats.fetch.count, 1)
+})
+
+test.only('test Grob::content-length()', async t => {
+  using grob = new Grob({ download_folder: t.artifacts_folder })
+
+  const response_body_garbage_data = new Array(4000).fill(0).join('')
+  // const response_body_garbage_data = 'foobar'
+  const content_length = (new TextEncoder().encode(response_body_garbage_data)).length
+  // t.assert.fetch({ request: { url: 'http://localhost:4000/foobar' }, response: { headers: {'content-length': content_length.toString()}, body: response_body_garbage_data },  })
+  t.assert.fetch({
+    request: {
+      url: 'https://search.brave.com/',
+    },
+    response: {
+      body: response_body_garbage_data,
+      headers: { 'content-length': content_length.toString() },
+      status_code: 200,
+    },
+  })
+
+  await grob.fetch_text('https://search.brave.com')
+  t.assert.equals(grob.stats.fetch, { count: 1, total_bytes: 4000})
+  t.assert.equals(grob.stats.cache, { count: 0, total_bytes: 0})
+
+  await grob.fetch_text('https://search.brave.com')
+  t.assert.equals(grob.stats.fetch, { count: 1, total_bytes: 4000})
+  t.assert.equals(grob.stats.cache, { count: 1, total_bytes: 4000})
+
+  await grob.fetch_text('https://search.brave.com')
+  t.assert.equals(grob.stats.fetch, { count: 1, total_bytes: 4000})
+  t.assert.equals(grob.stats.cache, { count: 2, total_bytes: 8000})
 })

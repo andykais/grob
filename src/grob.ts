@@ -39,8 +39,14 @@ interface GrobbedResponse {
 }
 
 interface GrobStats {
-  fetch_count: number
-  cache_count: number
+  fetch: {
+    count: number
+    total_bytes: number
+  }
+  cache: {
+    count: number
+    total_bytes: number
+  }
 }
 
 interface FetchOptions extends RequestInit {
@@ -54,6 +60,19 @@ const DEFAULT_HEADERS = {
 
 class GrobResponse extends Response {
   filepath: string | undefined
+
+  content_length() {
+    const content_length = this.headers.get('content-length')
+
+    if (content_length) {
+      const content_length_bytes = parseInt(content_length)
+      return content_length_bytes
+    }
+    return 0
+//     return content_length
+//       ? parseInt(content_length)
+//       : 0
+  }
 }
 
 class HttpError extends Error {
@@ -91,7 +110,7 @@ class Grob {
     this.db = config?.database ?? new GrobDatabase(this.download_folder)
     this.queue = new RateLimitQueue(this.config.throttle)
     this.runtime_cache = new Map()
-    this.stats = { fetch_count: 0, cache_count: 0 }
+    this.stats = { fetch: {count: 0, total_bytes: 0}, cache: {count: 0, total_bytes: 0} }
   }
 
   public close() {
@@ -219,13 +238,16 @@ class Grob {
     if (cache) {
       const runtime_cache_response = this.runtime_cache.get(serialized_request)
       if (runtime_cache_response) {
-        this.stats.cache_count++
-        return await runtime_cache_response
+        const grob_response = await runtime_cache_response
+        this.stats.cache.total_bytes += grob_response.content_length()
+        this.stats.cache.count++
+        return grob_response
       }
 
       const persistent_response = this.db.select_request(request_record)
       if (persistent_response) {
-        this.stats.cache_count++
+        this.stats.cache.total_bytes += persistent_response.content_length()
+        this.stats.cache.count++
         this.validate_response(grob_options, request, persistent_response)
         return persistent_response
       }
@@ -252,6 +274,7 @@ class Grob {
       }
 
       const grob_response = new GrobResponse(response_body, response)
+      this.stats.fetch.total_bytes += grob_response.content_length()
       grob_response.filepath = response_body_filepath
       return grob_response
     })
@@ -261,7 +284,7 @@ class Grob {
         }
       })
 
-    this.stats.fetch_count++
+    this.stats.fetch.count++
     this.runtime_cache.set(serialized_request, fetch_promise)
 
     // // TODO attach cache/fetch stats to GrobResponse. This will become important when we have multiple scoped grobs built off the same grob base
