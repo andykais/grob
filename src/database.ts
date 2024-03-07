@@ -50,7 +50,9 @@ class GrobDatabase {
       );`)
     this.db.query(`CREATE UNIQUE INDEX IF NOT EXISTS request_params ON requests(request, expires_on);`)
     this.insert_request_stmt = this.db.prepareQuery(`INSERT INTO requests (request, response_headers, response_body, response_body_filepath, expires_on) VALUES (:request, :response_headers, :response_body, :response_body_filepath, :expires_on)`)
-    this.select_request_stmt = this.db.prepareQuery(`SELECT * FROM requests WHERE request = :request AND (expires_on IS NULL OR expires_on >= :now)`)
+    this.select_request_stmt = this.db.prepareQuery(`SELECT * FROM requests WHERE request = :request AND (expires_on IS NULL OR expires_on >= :now) ORDER BY expires_on DESC`)
+    // note this needs to be tested. It seemed to ignore the cache. We want to be able to set an expiration, but then ignore it later if we dont pass any expiration. We were otherwise always sending now
+    // this.select_request_stmt = this.db.prepareQuery(`SELECT * FROM requests WHERE request = :request AND (:now IS NULL OR expires_on >= :now)`)
   }
 
   public close() {
@@ -59,9 +61,10 @@ class GrobDatabase {
     this.db.close()
   }
 
-  public select_request(request: RequestCreate): GrobResponse | undefined {
+  public select_request(request: RequestCreate, and_expiration: boolean): GrobResponse | undefined {
     const serialized_request = JSON.stringify(request)
     const now = datetime.format(new Date(), datetime_format_string)
+    const params = { request: this.serialize_request, now: and_expiration ? now : null }
     const ret = this.select_request_stmt.firstEntry({ request: serialized_request, now }) as RequestsTR | undefined
     if (ret) {
       const response = new GrobResponse(ret.response_body, {
@@ -76,7 +79,7 @@ class GrobDatabase {
     const serialized_request = JSON.stringify(request)
     const serialized_headers = JSON.stringify(Object.fromEntries(response_headers.entries()))
     const expires_on = cache_control?.expires_on ? datetime.format(cache_control.expires_on, datetime_format_string) : null
-    this.insert_request_stmt.execute({ request: serialized_request, response_headers: serialized_headers, response_body, response_body_filepath, expires_on })
+    const result = this.insert_request_stmt.execute({ request: serialized_request, response_headers: serialized_headers, response_body, response_body_filepath, expires_on })
   }
 
   private serialize_request(url: string, fetch_options: RequestInit) {
