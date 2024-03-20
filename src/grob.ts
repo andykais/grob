@@ -91,6 +91,7 @@ class Grob {
   private queue: RateLimitQueue<GrobResponse>
   private runtime_cache: Map<string, Promise<GrobResponse>>
   private default_headers: Record<string, string>
+  private text_encoder = new TextEncoder()
 
   public constructor(config?: GrobConfig) {
     this.config = config ?? {}
@@ -255,26 +256,43 @@ class Grob {
 
     const fetch_promise = this.queue.enqueue(async () => {
       const response = await fetch(request)
-      this.validate_response(grob_options, request, response)
+      console.log(`Request: ${request.url}`)
+      console.log(`Request query params:`)
+          const queryparams = new URL(request.url).searchParams
+          for (const [name, value] of queryparams.entries()) {
+            console.log(`  ${name}: ${value}`)
+          }
 
+      console.log(`Response headers:`)
+      for (const [name, value] of response.headers.entries()) {
+        console.log(`  ${name}: ${value}`)
+      }
+      console.log()
+
+      let response_length = 0
       let response_body: string | undefined
       let response_body_filepath: string | undefined
       if (read && write) {
         throw new Error('unimplemented')
       } if (read) {
         response_body = await response.text()
+        response_length = this.text_encoder.encode(response_body).length
       } else if (write) {
         response_body_filepath = write
         if (!response.body) throw new Error('unexpected response: cannot write file from a null Response::body')
-        await this.write_file(response.body, response_body_filepath)
+        response_length = await this.write_file(response.body, response_body_filepath)
       }
 
       if (cache)  {
         this.db.insert_response(request_record, response.status, response.headers, response_body, response_body_filepath, { expires_on })
       }
 
+      // we validate _after_ writing to the cache intentionally because we may want to inspect unexpected requests
+      // if we want to reject invalid requests and retry for transient reasons, that will have to rely on the @retry feature.
+      this.validate_response(grob_options, request, response)
+
       const grob_response = new GrobResponse(response_body, response)
-      this.stats.fetch.total_bytes += grob_response.content_length()
+      this.stats.fetch.total_bytes += response_length
       grob_response.filepath = response_body_filepath
       return grob_response
     })
@@ -301,10 +319,20 @@ class Grob {
     // we _may_ error here on a file name clash, but thats more of a user error than anything
     const file = await Deno.open(dest_filepath_temp, { write: true, createNew: true })
 
-    await data_stream.pipeTo(file.writable)
+    let byte_count = 0
+    const byte_counter_stream = new TransformStream<Uint8Array, Uint8Array>({
+      start() {},
+      transform(chunk, controller) {
+        byte_count += chunk.byteLength
+        controller.enqueue(chunk)
+      }
+    })
+    await data_stream.pipeThrough(byte_counter_stream).pipeTo(file.writable)
+    // await data_stream.pipeTo(file.writable)
     await Deno.mkdir(dest_folder, { recursive: true })
     await Deno.rename(dest_folder_temp, dest_folder)
     await Deno.rename(path.join(dest_folder, path.basename(dest_filepath_temp)), dest_filepath)
+    return byte_count
   }
 
   private validate_response(grob_options: GrobOptions, request: Request, response: Response): Response {
@@ -321,4 +349,4 @@ class Grob {
   }
 }
 
-export { Grob, GrobResponse }
+export { Grob, GrobResponse, HttpError }

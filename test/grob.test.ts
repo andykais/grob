@@ -281,7 +281,7 @@ test.skip('grob parallel fetch_file with explicit filepath', async t => {
   t.assert.equals(grob.stats.fetch.count, 1)
 })
 
-test.only('test Grob::content-length()', async t => {
+test('test Grob::content-length()', async t => {
   using grob = new Grob({ download_folder: t.artifacts_folder })
 
   const response_body_garbage_data = new Array(4000).fill(0).join('')
@@ -309,5 +309,22 @@ test.only('test Grob::content-length()', async t => {
 
   await grob.fetch_text('https://search.brave.com')
   t.assert.equals(grob.stats.fetch, { count: 1, total_bytes: 4000})
+  t.assert.equals(grob.stats.cache, { count: 2, total_bytes: 8000})
+
+  const response_body_garbage_data_2 = new Array(5000).fill(1).join('')
+  const content_length_2 = (new TextEncoder().encode(response_body_garbage_data_2)).length
+  t.assert.fetch({
+    request: {
+      url: 'https://search.brave.com/myfile',
+    },
+    response: {
+      body: response_body_garbage_data_2,
+      headers: { 'content-length': content_length_2.toString() },
+      status_code: 200,
+    },
+  })
+
+  await grob.fetch_file('https://search.brave.com/myfile')
+  t.assert.equals(grob.stats.fetch, { count: 2, total_bytes: 9000})
   t.assert.equals(grob.stats.cache, { count: 2, total_bytes: 8000})
 })

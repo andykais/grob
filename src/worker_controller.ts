@@ -1,3 +1,4 @@
+import { path } from "./deps.ts";
 import { PromiseController } from "./promise_controller.ts";
 import { CompiledGrobber } from "./registry.ts";
 import * as worker from './worker.ts'
@@ -21,7 +22,6 @@ class WorkerController {
 
   public constructor(download_folder: string, database_folder: string, grobber: CompiledGrobber, options?: WorkerControllerOptions) {
     this.accept_fetch = options?.[accept_fetch_symbol] ?? false
-    // console.log('WorkerController::', download_folder)
     this.download_folder = download_folder
     this.database_folder = database_folder
     this.grobber = grobber
@@ -68,26 +68,24 @@ class WorkerController {
     // and tying a worker_complete_controller to a map of launch ids
     this.worker_complete_controller = new PromiseController()
 
-    // console.log('WorkerController::start this.download_folder', this.download_folder)
+    const sanitized_folder_name = input.replaceAll('/', '_')
+    const input_download_folder = path.join(this.download_folder, sanitized_folder_name)
     const launch_message: worker.MasterMessageLaunch = {
       command: 'launch',
       fetch_piping: this.accept_fetch,
       grobber_definition: this.grobber.definition,
       database_folder: this.database_folder,
-      grobber_folder: this.download_folder,
+      grobber_folder: input_download_folder,
       grobber_name: this.grobber.definition.name,
       main_filepath: this.grobber.main_filepath,
       input,
     }
     this.send_message(launch_message)
 
-    // console.log('awaiting worer complete promise...')
     await this.worker_complete_controller.promise
-    // console.log('completed')
   }
 
   public async stop() {
-    console.log('WorkerController::stop')
     this.send_message({ command: 'shutdown' })
     // lets give it 100ms to shutdown gracefully
     return new Promise<void>(resolve => {

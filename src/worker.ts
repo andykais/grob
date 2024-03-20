@@ -122,10 +122,7 @@ class WorkerSingleton {
     }
 
     try {
-      // console.log('Worker::onmessage entrypoint.fn:', input)
-      // console.log('                                ', grob.download_folder)
       await entrypoint.fn(grob, input, entrypoint.vars)
-      // console.log('Worker::onmessage entrypoint.fn:', input, 'complete')
     } catch (e) {
       if (e instanceof Deno.errors.PermissionDenied) {
         this.send_message({
@@ -163,16 +160,29 @@ class WorkerSingleton {
   pipe_fetch() {
     self.fetch = (input: string | URL | Request, init?: RequestInit) => {
       const fetch_id = crypto.randomUUID()
+      let url: string
+      let method = 'GET'
+      let body: any
+      let headers: HeadersInit | undefined
+
       if (input instanceof Request) {
-        throw new Error('unimplemented')
+        url = input.url
+        method = input.method
+        body = input.body
+        headers = Object.fromEntries(input.headers.entries())
+      } else {
+        url = input.toString()
+        method = init?.method ?? method
+        body = init?.body
+        headers = init?.headers
       }
       this.send_message({
         command: 'fetch',
         fetch_id,
-        url: input.toString(),
-        method: init?.method ?? 'GET',
-        body: init?.body,
-        headers: init?.headers
+        url,
+        method,
+        body,
+        headers,
       })
       const promise_controller = new PromiseController<Response>()
       this.fetch_response_controllers[fetch_id] = promise_controller

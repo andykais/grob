@@ -158,11 +158,9 @@ class GrobberRegistry {
   }
 
   private async launch_grobber(input: string, grobber: CompiledGrobber, options: WorkerControllerOptions | undefined) {
-    const sanitized_folder_name = input.replaceAll('/', '_')
-
     const download_folder = grobber.definition.folder
       ? path.join(this.download_folder, grobber.definition.name, grobber.definition.folder)
-      : path.join(this.download_folder, grobber.definition.name, sanitized_folder_name)
+      : path.join(this.download_folder, grobber.definition.name)
 
     const database_folder = grobber.definition.folder
       ? path.join(this.download_folder, grobber.definition.name, grobber.definition.folder)
@@ -174,6 +172,11 @@ class GrobberRegistry {
     }
 
     return grobber.worker_controller.start(input)
+  }
+
+
+  async [Symbol.asyncDispose]() {
+    await this.close()
   }
 }
 
