@@ -1,12 +1,24 @@
 {
   "tasks": {
     "develop": "deno run --watch --check --unstable-fs --unstable-worker-options --allow-read --allow-write --allow-net",
-    "test": "deno test --unstable-fs --unstable-worker-options --check --import-map test/tools/import_map.json --allow-read --allow-write --allow-net test/*.test.ts",
-    "test:watch": "deno test --unstable-fs --unstable-worker-options --watch --check --trace-ops --import-map test/tools/import_map.json --allow-read --allow-write --allow-net",
-    "lint": "deno lint",
-  }
+    "test":       "deno test         --unstable-fs --unstable-worker-options --check --import-map test/tools/import_map.json --allow-read --allow-write --allow-net --allow-ffi --allow-env=HOME,DENO_DIR,XDG_CACHE_HOME,DENO_SQLITE_PATH,DENO_SQLITE_LOCAL test/*.test.ts",
+    "test:watch": "deno test --watch --unstable-fs --unstable-worker-options --check --import-map test/tools/import_map.json --allow-read --allow-write --allow-net --allow-ffi --allow-env=HOME,DENO_DIR,XDG_CACHE_HOME,DENO_SQLITE_PATH,DENO_SQLITE_LOCAL",
+    "lint": "deno lint"
+  },
 
   "imports": {
-    "https://deno.land/x/grob/mod.ts": "./mod.ts"
+    "@db/sqlite": "jsr:@db/sqlite@^0.12.0",
+    "@std/datetime": "jsr:@std/datetime@^0.225.3",
+    "@std/fs": "jsr:@std/fs@^1.0.9",
+    "@std/http": "jsr:@std/http@^1.0.12",
+    "@std/path": "jsr:@std/path@^1.0.8",
+    "@std/yaml": "jsr:@std/yaml@^1.0.5",
+    "css-select": "npm:css-select@^5.1.0",
+    "dom-serializer": "npm:dom-serializer@^2.0.0",
+    "domhandler": "npm:domhandler@^5.0.3",
+    "domutils": "npm:domutils@^3.2.2",
+    "html-parser2": "npm:html-parser2@^1.0.2",
+    "https://deno.land/x/grob/mod.ts": "./mod.ts",
+    "zod": "npm:zod@^3.24.1"
   }
 }

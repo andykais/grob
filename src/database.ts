@@ -29,16 +29,16 @@ interface GrobParsedResponseInternal {
 class GrobDatabase {
   public download_folder: string
   public database_filepath: string
-  private db: sqlite.DB
+  private db: sqlite.Database
 
-  private insert_request_stmt: sqlite.PreparedQuery
-  private select_request_stmt: sqlite.PreparedQuery
+  private insert_request_stmt: sqlite.Statement
+  private select_request_stmt: sqlite.Statement
 
   public constructor(download_folder: string) {
     this.download_folder = download_folder
     this.database_filepath = `${download_folder}/requests.db`
-    this.db = new sqlite.DB(this.database_filepath)
-    this.db.query(`
+    this.db = new sqlite.Database(this.database_filepath)
+    this.db.run(`
       CREATE TABLE IF NOT EXISTS requests (
         id INTEGER NOT NULL PRIMARY KEY,
         request TEXT NOT NULL,
@@ -52,9 +52,9 @@ class GrobDatabase {
       );`)
     // NOTE to self: this was a bad design. We should have two indexes. One thats the unique request
     //               and one thats the request + created_at. The lookup should infer the TTL cutoff at runtime
-    this.db.query(`CREATE UNIQUE INDEX IF NOT EXISTS request_params ON requests(request, expires_on);`)
-    this.insert_request_stmt = this.db.prepareQuery(`INSERT INTO requests (request, response_status, response_headers, response_body, response_body_filepath, expires_on) VALUES (:request, :response_status, :response_headers, :response_body, :response_body_filepath, :expires_on)`)
-    this.select_request_stmt = this.db.prepareQuery(`SELECT * FROM requests WHERE request = :request AND (expires_on IS NULL OR expires_on >= :now)`)
+    this.db.run(`CREATE UNIQUE INDEX IF NOT EXISTS request_params ON requests(request, expires_on);`)
+    this.insert_request_stmt = this.db.prepare(`INSERT INTO requests (request, response_status, response_headers, response_body, response_body_filepath, expires_on) VALUES (:request, :response_status, :response_headers, :response_body, :response_body_filepath, :expires_on)`)
+    this.select_request_stmt = this.db.prepare(`SELECT * FROM requests WHERE request = :request AND (expires_on IS NULL OR expires_on >= :now)`)
   }
 
   public close() {
@@ -66,7 +66,7 @@ class GrobDatabase {
   public select_request(request: RequestCreate): GrobResponse | undefined {
     const serialized_request = JSON.stringify(request)
     const now = datetime.format(new Date(), datetime_format_string)
-    const ret = this.select_request_stmt.firstEntry({ request: serialized_request, now }) as RequestsTR | undefined
+    const ret = this.select_request_stmt.get<RequestsTR>({ request: serialized_request, now })
     if (ret) {
       const response = new GrobResponse(ret.response_body, {
         status: ret.response_status,
@@ -81,7 +81,14 @@ class GrobDatabase {
     const serialized_request = JSON.stringify(request)
     const serialized_headers = JSON.stringify(Object.fromEntries(response_headers.entries()))
     const expires_on = cache_control?.expires_on ? datetime.format(cache_control.expires_on, datetime_format_string) : null
-    this.insert_request_stmt.execute({ request: serialized_request, response_status, response_headers: serialized_headers, response_body, response_body_filepath, expires_on })
+    this.insert_request_stmt.run({
+      request: serialized_request,
+      response_status,
+      response_headers: serialized_headers,
+      response_body: response_body ?? null,
+      response_body_filepath: response_body_filepath ?? null,
+      expires_on
+    })
   }
 
   private serialize_request(url: string, fetch_options: RequestInit) {

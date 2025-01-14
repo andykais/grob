@@ -52,7 +52,7 @@ class WorkerController {
       try {
         await this.handle_worker_message(event.data)
       } catch (error) {
-        this.worker_complete_controller.reject(error)
+        this.worker_complete_controller.reject(error as Error)
         this.worker.terminate()
       }
     }

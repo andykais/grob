@@ -4,7 +4,7 @@ export * as yaml from "https://deno.land/std@0.193.0/yaml/mod.ts";
 export * as datetime from "https://deno.land/std@0.193.0/datetime/mod.ts";
 export { getSetCookies } from "https://deno.land/std@0.193.0/http/mod.ts";
 export * as z from 'npm:zod@3.21'
-export * as sqlite from 'https://deno.land/x/sqlite@v3.7.2/mod.ts';
+export * as sqlite from '@db/sqlite';
 export * as CSSSelect from 'npm:css-select'
 export { parseDOM } from "npm:htmlparser2";
 export * as domhandler from "npm:domhandler";
