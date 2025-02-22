@@ -1,5 +1,5 @@
 import * as path from 'https://deno.land/std@0.192.0/path/mod.ts'
-import { Grob } from 'https://deno.land/x/grob/mod.ts'
+import { Grob } from '../../mod.ts'
 
 
 export default async function(grob: Grob, input: string) {

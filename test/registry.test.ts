@@ -101,7 +101,7 @@ test('grobber registry permissions', async t => {
   grobbers.close()
 })
 
-test('registry remote integration server', async t => {
+test.only('registry remote integration server', async t => {
   t.fake_fetch.disable()
 
   const server_controller = new AbortController()

@@ -1,0 +1,11 @@
+{
+  "tasks": {
+    "develop": "deno run --watch --check --unstable --allow-read --allow-write --allow-net",
+    "test": "deno test --unstable-ffi --unstable-worker-options --check --allow-read --allow-write --allow-net --allow-import --allow-env=DENO_SQLITE_PATH,DENO_SQLITE_LOCAL,DENO_DIR,HOME test/*.test.ts",
+    "test:watch": "deno test --unstable-ffi --unstable-worker-options --watch --check --allow-ffi --allow-read --allow-import --allow-write --allow-net --allow-env=DENO_SQLITE_PATH,DENO_SQLITE_LOCAL,DENO_DIR,HOME",
+    "lint": "deno lint",
+  },
+  "imports": {
+    "@db/sqlite": "jsr:@db/sqlite@^0.12.0"
+  }
+}

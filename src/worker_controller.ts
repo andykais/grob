@@ -26,9 +26,14 @@ class WorkerController {
       deno: {
         permissions: {
           // download_folder must be an absolute path to work when this module is imported remotely
-          read: [download_folder],
+          read: 'inherit',
+          ffi: 'inherit',
+          import: 'inherit',
+
+          // read: [download_folder],
           write: [download_folder],
           net: grobber.definition.permissions,
+          env: 'inherit',
         }
       }
     })
@@ -37,7 +42,7 @@ class WorkerController {
       try {
         await this.handle_worker_message(event.data)
       } catch (error) {
-        this.worker_complete_controller.reject(error)
+        this.worker_complete_controller.reject(error as Error)
         this.worker.terminate()
       }
     }
