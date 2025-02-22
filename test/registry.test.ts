@@ -3,7 +3,7 @@ import { path, fs, file_server } from './tools/deps.ts'
 import { GrobberRegistry, InvalidPermissions, type GrobberDefinition } from '../mod.ts'
 
 
-test.only('grobber registry', async t => {
+test('grobber registry', async t => {
   await using grobbers = new GrobberRegistry({ download_folder: t.artifacts_folder })
 
   // await grobbers.register('./examples/imgur.com/grob.yml')
@@ -97,11 +97,16 @@ test('grobber registry permissions', async t => {
   example_fetch.remove()
 })
 
-test('registry remote integration server', async t => {
+// this test attempts to recreate what its like to just reference a grobber on the web, e.g. on github
+// this test is skipped for now because we sort of need to reimplement a whole remote package manager...
+test.skip('registry remote integration server', async t => {
   t.fake_fetch.disable()
 
   await using server = Deno.serve({
     handler: async (req: Request) => {
+      if (req.url.includes('@andykais/grob')) {
+        return await file_server.serveFile(req, path.join(path.dirname(import.meta.dirname!), 'mod.ts'))
+      }
       if (req.url.includes('/static')) {
         return await file_server.serveDir(req, {
           fsRoot: path.join(t.fixtures_folder, 'grobbers', 'remote_definition'),

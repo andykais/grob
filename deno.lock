@@ -404,6 +404,12 @@
     }
   },
   "remote": {
+    "http://localhost:9000/jsr/@andykais/grob": "46384724351be6945e88a6b15854adbf6a290e16c2d6a06f3be62a35d532a460",
+    "http://localhost:9000/jsr/@andykais/src/grob.ts": "c3ab8ff13720e8ad9047dd39466b3c8974e592c2fa383d4a3960714caef0c4f2",
+    "http://localhost:9000/jsr/@andykais/src/grobber.ts": "c3ab8ff13720e8ad9047dd39466b3c8974e592c2fa383d4a3960714caef0c4f2",
+    "http://localhost:9000/jsr/@andykais/src/htmlq.ts": "c3ab8ff13720e8ad9047dd39466b3c8974e592c2fa383d4a3960714caef0c4f2",
+    "http://localhost:9000/jsr/@andykais/src/registry.ts": "c3ab8ff13720e8ad9047dd39466b3c8974e592c2fa383d4a3960714caef0c4f2",
+    "http://localhost:9000/jsr/@andykais/src/worker_controller.ts": "c3ab8ff13720e8ad9047dd39466b3c8974e592c2fa383d4a3960714caef0c4f2",
     "http://localhost:9000/static/main.ts?reload=1710958306498": "2ff306f806afbd113afee86a098ba821aa6b2959c31997d2110360c5c79fa890",
     "http://localhost:9000/static/main.ts?reload=1710958409916": "597f901adbbc83f7d26bfacb00b4fbec9aecc4f3d4fde0f9b3168d37426b4167",
     "http://localhost:9000/static/main.ts?reload=1710958453198": "597f901adbbc83f7d26bfacb00b4fbec9aecc4f3d4fde0f9b3168d37426b4167",
@@ -411,6 +417,10 @@
     "http://localhost:9000/static/main.ts?reload=1710959358950": "597f901adbbc83f7d26bfacb00b4fbec9aecc4f3d4fde0f9b3168d37426b4167",
     "http://localhost:9000/static/main.ts?reload=1710959378655": "597f901adbbc83f7d26bfacb00b4fbec9aecc4f3d4fde0f9b3168d37426b4167",
     "http://localhost:9000/static/main.ts?reload=1710959416178": "597f901adbbc83f7d26bfacb00b4fbec9aecc4f3d4fde0f9b3168d37426b4167",
+    "http://localhost:9000/static/main.ts?reload=1740253324271": "597f901adbbc83f7d26bfacb00b4fbec9aecc4f3d4fde0f9b3168d37426b4167",
+    "http://localhost:9000/static/main.ts?reload=1740253822452": "164fd41072fe7e82cc5e992465e927ce04d155b40ed800bff72e046cbd6acd5d",
+    "http://localhost:9000/static/main.ts?reload=1740253855517": "164fd41072fe7e82cc5e992465e927ce04d155b40ed800bff72e046cbd6acd5d",
+    "http://localhost:9000/static/main.ts?reload=1740253946583": "164fd41072fe7e82cc5e992465e927ce04d155b40ed800bff72e046cbd6acd5d",
     "http://localhost:9000/static/util.ts": "681b4cbda86ba1eb03c713f1b00d5e0831a545e5414f0912c4765aa49567fd6f",
     "https://deno.land/std@0.164.0/_util/asserts.ts": "d0844e9b62510f89ce1f9878b046f6a57bf88f208a10304aab50efcb48365272",
     "https://deno.land/std@0.164.0/_util/os.ts": "8a33345f74990e627b9dfe2de9b040004b08ea5146c7c9e8fe9a29070d193934",

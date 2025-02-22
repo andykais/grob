@@ -1,4 +1,4 @@
-import { Grob, Grobber } from 'https://deno.land/x/grob/mod.ts'
+import { Grob, Grobber } from '../../../../mod.ts'
 
 
 export const grobber = new Grobber()

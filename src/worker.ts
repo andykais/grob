@@ -130,7 +130,10 @@ class WorkerSingleton {
     try {
       await entrypoint.fn(grob, input, entrypoint.vars)
     } catch (e) {
-      if (e instanceof Deno.errors.PermissionDenied) {
+      if (
+        e instanceof Deno.errors.PermissionDenied ||
+        e instanceof Deno.errors.NotCapable
+      ) {
         this.send_message({
           command: 'error',
           type: 'permission_denied',

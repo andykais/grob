@@ -1,4 +1,4 @@
-import { Grobber, type Grob } from 'https://deno.land/x/grob/mod.ts'
+import { Grobber, type Grob } from '../../mod.ts'
 import * as z from 'npm:zod@3.21'
 
 
@@ -23,7 +23,6 @@ async function post_page(grob: Grob, input: string) {
 
 async function user_page(grob: Grob, input: string, vars: { username: string }) {
   const { username } = vars
-  console.log({ username })
   const user_page = await grob.fetch_html(`https://artstation.com/${username}`)
 
   const user_id = UserId.parse(
