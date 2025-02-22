@@ -63,10 +63,15 @@ interface WorkerMessageComplete {
   command: 'complete'
 }
 
+interface WorkerMessageBooted {
+  command: 'booted'
+}
+
 type WorkerMessage =
   | WorkerMessageFetch
   | WorkerMessageComplete
   | WorkerMessageError
+  | WorkerMessageBooted
 
 
 class GrobberRegistryWorker {
@@ -103,6 +108,8 @@ class WorkerSingleton {
         }
       }
     }
+
+    this.send_message({command: 'booted'})
   }
 
   async handle_launch_command(data: MasterMessageLaunch) {

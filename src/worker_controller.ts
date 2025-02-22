@@ -14,6 +14,7 @@ class InvalidPermissions extends Error {}
 
 class WorkerController {
   worker: Worker
+  worker_booted_controller: PromiseController<void>
   worker_complete_controller: PromiseController<void>
   grobber: CompiledGrobber
   download_folder: string
@@ -27,8 +28,17 @@ class WorkerController {
     this.grobber = grobber
     const permissions: Deno.PermissionOptions = {
       // download_folder must be an absolute path to work when this module is imported remotely
-      read: [download_folder, database_folder],
+
+      // NOTE it looks like because of sqlite ffi we have to allow read all
+      // tihs does make a good case for using wasm sqlite here
+      read: true,
+      ffi: true,
+      // read: [download_folder, database_folder],
       write: [download_folder, database_folder],
+      env: ['HOME', 'DENO_DIR', 'XDG_CACHE_HOME', 'DENO_SQLITE_PATH', 'DENO_SQLITE_LOCAL'],
+
+      // necessary for any imports (including top level imports) to work within a worker
+      import: true,
     }
     if (grobber.definition.permissions) {
       // there is possibly a better pattern to explicitly say ANY network access is allowed
@@ -48,6 +58,7 @@ class WorkerController {
       }
     })
     this.worker_complete_controller = new PromiseController()
+    this.worker_booted_controller = new PromiseController()
     this.worker.onmessage = async (event: MessageEvent<worker.WorkerMessage>) => {
       try {
         await this.handle_worker_message(event.data)
@@ -63,6 +74,9 @@ class WorkerController {
   }
 
   public async start(input: string) {
+    // we need the worker to set up its message listener before we start sending messages
+    await this.worker_booted_controller.promise
+
     // TODO FIXME: this is a shim to be able to run the worker with back to back launches
     // the real solution involves passing a `launch_id` along with every message,
     // and tying a worker_complete_controller to a map of launch ids
@@ -102,6 +116,9 @@ class WorkerController {
 
   private handle_worker_message = async (message: worker.WorkerMessage) => {
     switch(message.command) {
+      case 'booted': {
+        this.worker_booted_controller.resolve()
+      }
       case 'complete': {
         this.worker_complete_controller.resolve()
         break

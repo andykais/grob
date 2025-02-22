@@ -1,5 +1,5 @@
-import * as path from 'https://deno.land/std@0.192.0/path/mod.ts'
-import { Grob, Grobber } from 'https://deno.land/x/grob/mod.ts'
+import * as path from '@std/path'
+import { Grob, Grobber } from '../../mod.ts'
 
 
 export const grobber = new Grobber()
