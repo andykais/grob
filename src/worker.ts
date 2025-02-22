@@ -1,4 +1,3 @@
-import { PromiseController } from './promise_controller.ts'
 import { path } from './deps.ts'
 import { Grob } from './grob.ts'
 import { GrobberRegistry, type GrobberRegistryConfig, type CompiledGrobber, type GrobberDefinition, type GrobMain } from './registry.ts'
@@ -83,7 +82,7 @@ class GrobberRegistryWorker {
 
 class WorkerSingleton {
   worker_self = self as typeof self & Worker
-  fetch_response_controllers: Record<string, PromiseController<Response>> = {}
+  fetch_response_controllers: Record<string, PromiseWithResolvers<Response>> = {}
   database_map: Map<string, GrobDatabase> = new Map()
 
   constructor() {
@@ -191,7 +190,7 @@ class WorkerSingleton {
         body,
         headers,
       })
-      const promise_controller = new PromiseController<Response>()
+      const promise_controller = Promise.withResolvers<Response>()
       this.fetch_response_controllers[fetch_id] = promise_controller
       return promise_controller.promise
     }

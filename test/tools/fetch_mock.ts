@@ -1,5 +1,4 @@
 import { mock } from './deps.ts'
-import { PromiseController } from './promise_controller.ts'
 
 interface MockFetchInstructions {
   request: {
@@ -22,7 +21,7 @@ interface LiveExpectation {
 }
 
 interface MockExpectation {
-  promise_controller: PromiseController<Request>
+  promise_controller: PromiseWithResolvers<Request>
   instructions: MockFetchInstructions
   live_expectation: LiveExpectation
 }
@@ -66,7 +65,7 @@ class FetchMock {
   }
 
   public expector = (instructions: MockFetchInstructions): LiveExpectation => {
-    const promise_controller = new PromiseController<Request>()
+    const promise_controller = Promise.withResolvers<Request>()
     // push to the front of the array, so that when we respond, we look at the newest mocks first
     const live_expectation: LiveExpectation = {
       status: 'UNFULFILLED',

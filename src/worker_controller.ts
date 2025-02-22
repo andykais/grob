@@ -1,5 +1,4 @@
 import { path } from "./deps.ts";
-import { PromiseController } from "./promise_controller.ts";
 import { CompiledGrobber } from "./registry.ts";
 import * as worker from './worker.ts'
 
@@ -14,8 +13,8 @@ class InvalidPermissions extends Error {}
 
 class WorkerController {
   worker: Worker
-  worker_booted_controller: PromiseController<void>
-  worker_complete_controller: PromiseController<void>
+  worker_booted_controller: PromiseWithResolvers<void>
+  worker_complete_controller: PromiseWithResolvers<void>
   grobber: CompiledGrobber
   download_folder: string
   database_folder: string
@@ -57,8 +56,8 @@ class WorkerController {
         // }
       }
     })
-    this.worker_complete_controller = new PromiseController()
-    this.worker_booted_controller = new PromiseController()
+    this.worker_complete_controller = Promise.withResolvers()
+    this.worker_booted_controller = Promise.withResolvers()
     this.worker.onmessage = async (event: MessageEvent<worker.WorkerMessage>) => {
       try {
         await this.handle_worker_message(event.data)
@@ -80,7 +79,7 @@ class WorkerController {
     // TODO FIXME: this is a shim to be able to run the worker with back to back launches
     // the real solution involves passing a `launch_id` along with every message,
     // and tying a worker_complete_controller to a map of launch ids
-    this.worker_complete_controller = new PromiseController()
+    this.worker_complete_controller = Promise.withResolvers()
 
     const sanitized_folder_name = input.replaceAll('/', '_')
     const input_download_folder = path.join(this.download_folder, sanitized_folder_name)

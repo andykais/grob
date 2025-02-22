@@ -256,18 +256,18 @@ class Grob {
 
     const fetch_promise = this.queue.enqueue(async () => {
       const response = await fetch(request)
-      console.log(`Request: ${request.url}`)
-      console.log(`Request query params:`)
-          const queryparams = new URL(request.url).searchParams
-          for (const [name, value] of queryparams.entries()) {
-            console.log(`  ${name}: ${value}`)
-          }
+      // console.log(`Request: ${request.url}`)
+      // console.log(`Request query params:`)
+      //     const queryparams = new URL(request.url).searchParams
+      //     for (const [name, value] of queryparams.entries()) {
+      //       console.log(`  ${name}: ${value}`)
+      //     }
 
-      console.log(`Response headers:`)
-      for (const [name, value] of response.headers.entries()) {
-        console.log(`  ${name}: ${value}`)
-      }
-      console.log()
+      // console.log(`Response headers:`)
+      // for (const [name, value] of response.headers.entries()) {
+      //   console.log(`  ${name}: ${value}`)
+      // }
+      // console.log()
 
       let response_length = 0
       let response_body: string | undefined

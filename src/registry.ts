@@ -1,4 +1,3 @@
-import { PromiseController } from './promise_controller.ts'
 import { path, yaml, z } from './deps.ts'
 import { Grob } from './grob.ts'
 import { type RateLimitQueueConfig } from './queue.ts'
