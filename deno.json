@@ -18,7 +18,7 @@
     "domhandler": "npm:domhandler@^5.0.3",
     "domutils": "npm:domutils@^3.2.2",
     "html-parser2": "npm:html-parser2@^1.0.2",
-    "https://deno.land/x/grob/mod.ts": "./mod.ts",
+    "@andykais/grob": "./mod.ts",
     "zod": "npm:zod@^3.24.1"
   }
 }

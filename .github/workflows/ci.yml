@@ -1,0 +1,52 @@
+name: CI
+
+
+permissions:
+  contents: read
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+env:
+  DENO_DIR: deno_dependency_cache
+
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Setup repo
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+
+      - name: Cache Deno dependencies 
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.DENO_DIR }}
+          key: ${{ hashFiles('deno.lock') }}
+
+      - name: Lint
+        run: deno lint --ignore=deno_dependency_cache
+        if: false # this repo has not been brought up to snuff on deno linting
+
+      - name: Test
+        run: deno task test
+
+      - name: Lint Documentation Examples
+        if: false # this repo has no docs
+        run: deno test --doc src/**/*.ts
+
+      - name: Lint JSR Publish
+        if: false # this repo is not ready to be published yet
+        run: deno publish --dry-run
