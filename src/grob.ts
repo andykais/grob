@@ -2,7 +2,15 @@ import { path, getSetCookies, fs } from './deps.ts'
 import { GrobDatabase } from './database.ts'
 import { RateLimitQueue, type RateLimitQueueConfig } from './queue.ts'
 import { Htmlq } from './htmlq.ts'
+import * as datetime from '@std/datetime'
 
+
+interface Duration {
+  days?: number
+  hours?: number
+  minutes?: number
+  seconds?: number
+}
 
 type Filepath = string
 
@@ -14,10 +22,16 @@ interface GrobConfig {
 }
 interface GrobOptions {
   cache?: boolean
+
   ignore?: {
     headers?: string[]
   }
+
+  expires_after?: Duration
+
+  /** @deprecated */
   expires_on?: Date
+
   validate?: {
     status?: number[]
   }
@@ -216,6 +230,16 @@ class Grob {
     const read = grob_options.read ?? true
     const write = grob_options.write ?? undefined
 
+    let expires_after: Date | undefined
+    if (grob_options.expires_after) {
+      const duration = Temporal.Duration.from(grob_options.expires_after)
+      // NOTE we use Date rather than Temporal.Now.zonedDateTime here so that our testing monkey patches work properly
+      let instant = Temporal.Instant.fromEpochMilliseconds(Date.now())
+      let now = instant.toZonedDateTimeISO('UTC')
+      now = now.subtract(duration)
+      expires_after = new Date(now.epochMilliseconds)
+    }
+
 
     const headers = {...this.default_headers}
     const headers_iterable =
@@ -245,7 +269,7 @@ class Grob {
         return grob_response
       }
 
-      const persistent_response = this.db.select_request(request_record)
+      const persistent_response = this.db.select_request(request_record, {expires_after})
       if (persistent_response) {
         this.stats.cache.total_bytes += persistent_response.content_length()
         this.stats.cache.count++

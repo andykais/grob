@@ -33,6 +33,7 @@ class GrobDatabase {
 
   private insert_request_stmt: sqlite.Statement
   private select_request_stmt: sqlite.Statement
+  private select_request_stmt_expires_after: sqlite.Statement
 
   public constructor(download_folder: string) {
     this.download_folder = download_folder
@@ -55,6 +56,7 @@ class GrobDatabase {
     this.db.run(`CREATE UNIQUE INDEX IF NOT EXISTS request_params ON requests(request, expires_on);`)
     this.insert_request_stmt = this.db.prepare(`INSERT INTO requests (request, response_status, response_headers, response_body, response_body_filepath, expires_on) VALUES (:request, :response_status, :response_headers, :response_body, :response_body_filepath, :expires_on)`)
     this.select_request_stmt = this.db.prepare(`SELECT * FROM requests WHERE request = :request AND (expires_on IS NULL OR expires_on >= :now)`)
+    this.select_request_stmt_expires_after = this.db.prepare(`SELECT * FROM requests WHERE request = :request AND created_at >= :expires_after`)
   }
 
   public close() {
@@ -63,10 +65,19 @@ class GrobDatabase {
     this.db.close()
   }
 
-  public select_request(request: RequestCreate): GrobResponse | undefined {
+  public select_request(request: RequestCreate, options?: {expires_after?: Date}): GrobResponse | undefined {
     const serialized_request = JSON.stringify(request)
-    const now = datetime.format(new Date(), datetime_format_string)
-    const ret = this.select_request_stmt.get<RequestsTR>({ request: serialized_request, now })
+    let ret
+    if (options?.expires_after) {
+      const expires_after = options.expires_after.toISOString()
+      ret = this.select_request_stmt_expires_after.get<RequestsTR & {expires_after: string}>({ request: serialized_request, expires_after })
+
+      const now = datetime.format(new Date(), datetime_format_string)
+      const res = this.select_request_stmt.get<RequestsTR>({ request: serialized_request, now })
+    } else {
+      const now = datetime.format(new Date(), datetime_format_string)
+      ret = this.select_request_stmt.get<RequestsTR>({ request: serialized_request, now })
+    }
     if (ret) {
       const response = new GrobResponse(ret.response_body, {
         status: ret.response_status,
@@ -77,7 +88,7 @@ class GrobDatabase {
     }
   }
 
-  public insert_response(request: RequestCreate, response_status: number, response_headers: Headers, response_body: any, response_body_filepath: string | undefined, cache_control: { expires_on?: Date}) {
+  public insert_response(request: RequestCreate, response_status: number, response_headers: Headers, response_body: any, response_body_filepath: string | undefined, cache_control: { expires_on?: Date }) {
     const serialized_request = JSON.stringify(request)
     const serialized_headers = JSON.stringify(Object.fromEntries(response_headers.entries()))
     const expires_on = cache_control?.expires_on ? datetime.format(cache_control.expires_on, datetime_format_string) : null
