@@ -193,7 +193,12 @@ class Grob {
       filepath = generated_filepath
     }
 
-    const response = await this.fetch_internal(url, fetch_options, {read: false, write: filepath}) as { filepath: string } & GrobResponse
+    const grob_options_internal = {
+      ...grob_options,
+      read: false,
+      write: filepath
+    }
+    const response = await this.fetch_internal(url, fetch_options, grob_options_internal) as { filepath: string } & GrobResponse
     return response.filepath
 
     // // shoot. I dont think this works. The cache is going to keep returning the cached thing, but we wont know that the updated thing has been copied
