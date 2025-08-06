@@ -1,13 +1,12 @@
 {
   "tasks": {
-    "develop": "deno run --watch --check --unstable-fs --unstable-temporal --unstable-worker-options --allow-read --allow-write --allow-net",
-    "test":       "deno test         --unstable-fs --unstable-temporal --unstable-worker-options --check --import-map test/tools/import_map.json --allow-read --allow-write --allow-net --allow-ffi --allow-import --allow-env=HOME,DENO_DIR,XDG_CACHE_HOME,DENO_SQLITE_PATH,DENO_SQLITE_LOCAL test/*.test.ts",
-    "test:watch": "deno test --watch --unstable-fs --unstable-temporal --unstable-worker-options --check --import-map test/tools/import_map.json --allow-read --allow-write --allow-net --allow-ffi --allow-import --allow-env=HOME,DENO_DIR,XDG_CACHE_HOME,DENO_SQLITE_PATH,DENO_SQLITE_LOCAL",
+    "develop": "deno run --watch --check --unstable-temporal --unstable-worker-options --allow-read --allow-write --allow-net",
+    "test":       "deno test         --unstable-temporal --unstable-worker-options --check --import-map test/tools/import_map.json --allow-read --allow-write --allow-net --allow-ffi --allow-import --allow-env=HOME test/*.test.ts",
+    "test:watch": "deno test --watch --unstable-temporal --unstable-worker-options --check --import-map test/tools/import_map.json --allow-read --allow-write --allow-net --allow-ffi --allow-import --allow-env=HOME",
     "lint": "deno lint"
   },
 
   "imports": {
-    "@db/sqlite": "jsr:@db/sqlite@^0.12.0",
     "@std/datetime": "jsr:@std/datetime@^0.225.3",
     "@std/fs": "jsr:@std/fs@^1.0.9",
     "@std/http": "jsr:@std/http@^1.0.12",

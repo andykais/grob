@@ -28,13 +28,9 @@ class WorkerController {
     const permissions: Deno.PermissionOptions = {
       // download_folder must be an absolute path to work when this module is imported remotely
 
-      // NOTE it looks like because of sqlite ffi we have to allow read all
-      // tihs does make a good case for using wasm sqlite here
+      // note that we currently give this whole program read access to use things like the grob library locally. In reality, I don't know what the permissions will look like when someone imports grob from jsr inside a grob user
       read: true,
-      ffi: true,
-      // read: [download_folder, database_folder],
       write: [download_folder, database_folder],
-      env: ['HOME', 'DENO_DIR', 'XDG_CACHE_HOME', 'DENO_SQLITE_PATH', 'DENO_SQLITE_LOCAL'],
 
       // necessary for any imports (including top level imports) to work within a worker
       import: true,

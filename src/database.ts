@@ -1,4 +1,5 @@
-import { sqlite, datetime } from './deps.ts';
+import * as sqlite from 'node:sqlite'
+import { datetime } from './deps.ts';
 import { GrobResponse } from './grob.ts'
 
 const datetime_format_string = 'yyyy/MM/dd HH:mm'
@@ -29,17 +30,17 @@ interface GrobParsedResponseInternal {
 class GrobDatabase {
   public download_folder: string
   public database_filepath: string
-  private db: sqlite.Database
+  private db: sqlite.DatabaseSync
 
-  private insert_request_stmt: sqlite.Statement
-  private select_request_stmt: sqlite.Statement
-  private select_request_stmt_expires_after: sqlite.Statement
+  private insert_request_stmt: sqlite.StatementSync
+  private select_request_stmt: sqlite.StatementSync
+  private select_request_stmt_expires_after: sqlite.StatementSync
 
   public constructor(download_folder: string) {
     this.download_folder = download_folder
     this.database_filepath = `${download_folder}/requests.db`
-    this.db = new sqlite.Database(this.database_filepath)
-    this.db.run(`
+    this.db = new sqlite.DatabaseSync(this.database_filepath)
+    this.db.exec(`
       CREATE TABLE IF NOT EXISTS requests (
         id INTEGER NOT NULL PRIMARY KEY,
         request TEXT NOT NULL,
@@ -53,15 +54,13 @@ class GrobDatabase {
       );`)
     // NOTE to self: this was a bad design. We should have two indexes. One thats the unique request
     //               and one thats the request + created_at. The lookup should infer the TTL cutoff at runtime
-    this.db.run(`CREATE UNIQUE INDEX IF NOT EXISTS request_params ON requests(request, expires_on);`)
+    this.db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS request_params ON requests(request, expires_on);`)
     this.insert_request_stmt = this.db.prepare(`INSERT INTO requests (request, response_status, response_headers, response_body, response_body_filepath, expires_on) VALUES (:request, :response_status, :response_headers, :response_body, :response_body_filepath, :expires_on)`)
     this.select_request_stmt = this.db.prepare(`SELECT * FROM requests WHERE request = :request AND (expires_on IS NULL OR expires_on >= :now)`)
     this.select_request_stmt_expires_after = this.db.prepare(`SELECT * FROM requests WHERE request = :request AND created_at >= :expires_after`)
   }
 
   public close() {
-    this.insert_request_stmt.finalize()
-    this.select_request_stmt.finalize()
     this.db.close()
   }
 
@@ -70,13 +69,13 @@ class GrobDatabase {
     let ret
     if (options?.expires_after) {
       const expires_after = options.expires_after.toISOString()
-      ret = this.select_request_stmt_expires_after.get<RequestsTR & {expires_after: string}>({ request: serialized_request, expires_after })
+      ret = this.select_request_stmt_expires_after.get({ request: serialized_request, expires_after }) as RequestsTR & {expires_after: string} | undefined
 
       const now = datetime.format(new Date(), datetime_format_string)
-      const res = this.select_request_stmt.get<RequestsTR>({ request: serialized_request, now })
+      const res = this.select_request_stmt.get({ request: serialized_request, now }) as RequestsTR | undefined
     } else {
       const now = datetime.format(new Date(), datetime_format_string)
-      ret = this.select_request_stmt.get<RequestsTR>({ request: serialized_request, now })
+      ret = this.select_request_stmt.get({ request: serialized_request, now }) as RequestsTR | undefined
     }
     if (ret) {
       const response = new GrobResponse(ret.response_body, {
