@@ -1,5 +1,4 @@
 import { mock } from './deps.ts'
-import { PromiseController } from './promise_controller.ts'
 
 interface MockFetchInstructions {
   request: {
@@ -22,18 +21,20 @@ interface LiveExpectation {
 }
 
 interface MockExpectation {
-  promise_controller: PromiseController<Request>
+  promise_controller: PromiseWithResolvers<Request>
   instructions: MockFetchInstructions
   live_expectation: LiveExpectation
 }
 
 
-class FetchMockNotFound extends Error {}
+class FetchMockNotFound extends Error {
+  override name = 'FetchMockNotFound'
+}
 
 
 class FetchMock {
   private disabled: boolean
-  private fetch_stub: mock.Stub<Window & typeof globalThis, Parameters<typeof fetch>> | undefined
+  private fetch_stub: mock.Stub<typeof globalThis, Parameters<typeof fetch>> | undefined
   private expectations: MockExpectation[]
   public constructor() {
     this.disabled = false
@@ -41,7 +42,7 @@ class FetchMock {
   }
 
   public enable() {
-    this.fetch_stub = mock.stub(window, 'fetch', this.responder)
+    this.fetch_stub = mock.stub(globalThis, 'fetch', this.responder)
     this.disabled = false
   }
 
@@ -64,14 +65,14 @@ class FetchMock {
   }
 
   public expector = (instructions: MockFetchInstructions): LiveExpectation => {
-    const promise_controller = new PromiseController<Request>()
+    const promise_controller = Promise.withResolvers<Request>()
     // push to the front of the array, so that when we respond, we look at the newest mocks first
     const live_expectation: LiveExpectation = {
       status: 'UNFULFILLED',
       request: promise_controller.promise,
       remove: () => {
         const index = this.expectations.findIndex(e => e.live_expectation === live_expectation)
-        if (index === -1) throw new Error('fetch expectation has already been fulfilled')
+        if (index === -1) throw new Error('fetch expectation not found (it has perhaps already been fulfilled)')
         this.expectations.splice(index, 1)
       }
     }

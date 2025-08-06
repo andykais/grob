@@ -1,8 +1,16 @@
-import { path, getSetCookies } from './deps.ts'
+import { path, getSetCookies, fs } from './deps.ts'
 import { GrobDatabase } from './database.ts'
 import { RateLimitQueue, type RateLimitQueueConfig } from './queue.ts'
 import { Htmlq } from './htmlq.ts'
+import * as datetime from '@std/datetime'
 
+
+interface Duration {
+  days?: number
+  hours?: number
+  minutes?: number
+  seconds?: number
+}
 
 type Filepath = string
 
@@ -10,10 +18,28 @@ interface GrobConfig {
   download_folder?: Filepath
   headers?: Record<string, string>
   throttle?: RateLimitQueueConfig
+  database?: GrobDatabase
 }
 interface GrobOptions {
   cache?: boolean
+
+  ignore?: {
+    headers?: string[]
+  }
+
+  expires_after?: Duration
+
+  /** @deprecated */
   expires_on?: Date
+
+  validate?: {
+    status?: number[]
+  }
+}
+
+interface FetchFileGrobOptions extends GrobOptions {
+  filepath?: string
+  folder_prefix?: string;
 }
 
 interface GrobOptionsInternal extends GrobOptions {
@@ -27,8 +53,18 @@ interface GrobbedResponse {
 }
 
 interface GrobStats {
-  fetch_count: number
-  cache_count: number
+  fetch: {
+    count: number
+    total_bytes: number
+  }
+  cache: {
+    count: number
+    total_bytes: number
+  }
+}
+
+interface FetchOptions extends RequestInit {
+  client?: Deno.HttpClient
 }
 
 
@@ -37,7 +73,26 @@ const DEFAULT_HEADERS = {
 }
 
 class GrobResponse extends Response {
-  filepath?: string
+  filepath: string | undefined
+
+  content_length() {
+    const content_length = this.headers.get('content-length')
+
+    if (content_length) {
+      const content_length_bytes = parseInt(content_length)
+      return content_length_bytes
+    }
+    return 0
+//     return content_length
+//       ? parseInt(content_length)
+//       : 0
+  }
+}
+
+class HttpError extends Error {
+  public constructor(public request: Request, public response: Response, message?: string) {
+    super(message)
+  }
 }
 
 class Grob {
@@ -47,9 +102,10 @@ class Grob {
   public files_temp_folder: string
   public stats: GrobStats
   private db: GrobDatabase
-  private queue: RateLimitQueue<Response>
-  private runtime_cache: Map<string, Promise<Response>>
+  private queue: RateLimitQueue<GrobResponse>
+  private runtime_cache: Map<string, Promise<GrobResponse>>
   private default_headers: Record<string, string>
+  private text_encoder = new TextEncoder()
 
   public constructor(config?: GrobConfig) {
     this.config = config ?? {}
@@ -66,18 +122,21 @@ class Grob {
       else throw e
     }
     Deno.mkdirSync(this.files_temp_folder, { recursive: true })
-    this.db = new GrobDatabase(this.download_folder)
+    this.db = config?.database ?? new GrobDatabase(this.download_folder)
     this.queue = new RateLimitQueue(this.config.throttle)
     this.runtime_cache = new Map()
-    this.stats = { fetch_count: 0, cache_count: 0 }
+    this.stats = { fetch: {count: 0, total_bytes: 0}, cache: {count: 0, total_bytes: 0} }
   }
 
   public close() {
     this.queue.close()
-    this.db.close()
+    if (!this.config.database) {
+      // if the database was supplied from outside this class instance, we shouldnt close it
+      this.db.close()
+    }
   }
 
-  public async fetch_headers(url: string, fetch_options?: RequestInit, grob_options?: GrobOptions) {
+  public async fetch_headers(url: string, fetch_options?: FetchOptions, grob_options?: GrobOptions) {
     const response = await this.fetch_internal(
       url,
       fetch_options,
@@ -87,12 +146,12 @@ class Grob {
     return response.headers
   }
 
-  public async fetch_cookies(url: string, fetch_options?: RequestInit, grob_options?: GrobOptions) {
+  public async fetch_cookies(url: string, fetch_options?: FetchOptions, grob_options?: GrobOptions) {
     const response_headers = await this.fetch_headers(url, fetch_options, grob_options)
     return getSetCookies(response_headers)
   }
 
-  public async fetch_json(url: string, fetch_options?: RequestInit, grob_options?: GrobOptions) {
+  public async fetch_json(url: string, fetch_options?: FetchOptions, grob_options?: GrobOptions) {
     const response = await this.fetch_internal(
       url,
       fetch_options,
@@ -101,7 +160,7 @@ class Grob {
     return await response.json()
   }
 
-  public async fetch_text(url: string, fetch_options?: RequestInit, grob_options?: GrobOptions) {
+  public async fetch_text(url: string, fetch_options?: FetchOptions, grob_options?: GrobOptions) {
     const response = await this.fetch_internal(
       url,
       fetch_options,
@@ -110,7 +169,7 @@ class Grob {
     return await response.text()
   }
 
-  public async fetch_html(url: string, fetch_options?: RequestInit, grob_options?: GrobOptions) {
+  public async fetch_html(url: string, fetch_options?: FetchOptions, grob_options?: GrobOptions) {
     const response = await this.fetch_internal(
       url,
       fetch_options,
@@ -120,80 +179,203 @@ class Grob {
     return new Htmlq(html_text)
   }
 
-  public async fetch_file(url: string, fetch_options?: RequestInit, grob_options?: GrobOptions & { filepath?: string }): Promise<string> {
-    const filename = path.basename(url).replace(/\?.*/, '')
-    const generated_filepath = path.join(this.files_folder, crypto.randomUUID(), filename)
-    const filepath = grob_options?.filepath ?? generated_filepath
-    const response = await this.fetch_internal(url, fetch_options, {read: false, write: filepath}) as { filepath: string } & GrobResponse
+  public async fetch_file(url: string, fetch_options?: FetchOptions, grob_options?: FetchFileGrobOptions): Promise<string> {
+    if (grob_options?.folder_prefix && grob_options.filepath) {
+      throw new Error('Cannot specify both `filepath` and `folder_prefix` options')
+    }
+    let filepath = grob_options?.filepath
+    if (!filepath) {
+      const filename = path.basename(url).replace(/\?.*/, '')
+      const folder_prefix = grob_options?.folder_prefix ?? ''
+      // use date times so the folders contain some semblence of order by download
+      const folder_name = `${folder_prefix}${Date.now()}-${crypto.randomUUID().replace(/-.*/, '')}`
+      const generated_filepath = path.join(this.files_folder, folder_name, filename)
+      filepath = generated_filepath
+    }
+
+    const grob_options_internal = {
+      ...grob_options,
+      read: false,
+      write: filepath
+    }
+    const response = await this.fetch_internal(url, fetch_options, grob_options_internal) as { filepath: string } & GrobResponse
     return response.filepath
+
+    // // shoot. I dont think this works. The cache is going to keep returning the cached thing, but we wont know that the updated thing has been copied
+    // // this is especially true for auto-generated filepaths
+    // // // NOTE: we make an assumption that if there was a cache hit, and we specified a destination folder/filepath, that we want to duplicate the original file to the new destination
+    // if ((grob_options?.filepath || grob_options?.folder_prefix) && response.filepath != filepath) {
+    //   throw new Error(`duplicating a cache hit from ${response.filepath} to folder prefix ${grob_options.folder_prefix} is currently unsupported`)
+
+    //   if (grob_options?.filepath && response.filepath != filepath) {
+    //     const cached_response = await Deno.open(response.filepath, { read: true })
+    //     if (true) throw new Error('copying file...')
+    //     await this.write_file(cached_response.readable, filepath)
+    //     return filepath
+    //   } else if (grob_options.folder_prefix) {
+    //     if (response.filepath.includes(grob_options.folder_prefix)) {
+    //       // this cache hit meets the requirements of the folder prefix, so lets just return it
+    //       return response.filepath
+    //     } else {
+    //       const cached_response = await Deno.open(response.filepath, { read: true })
+    //       await this.write_file(cached_response.readable, filepath)
+    //       throw new Error(`duplicating a cache hit from ${response.filepath} to folder prefix ${grob_options.folder_prefix} is currently unsupported`)
+    //     }
+    //   }
+    // }
+    // return response.filepath
   }
 
   private async fetch_internal<T>(
     url: string,
-    fetch_options: RequestInit | undefined,
+    fetch_options: FetchOptions | undefined,
     grob_options: GrobOptionsInternal): Promise<GrobResponse> {
     const cache = grob_options.cache ?? true
     const expires_on = grob_options.expires_on
     const read = grob_options.read ?? true
     const write = grob_options.write ?? undefined
 
+    let expires_after: Date | undefined
+    if (grob_options.expires_after) {
+      const duration = Temporal.Duration.from(grob_options.expires_after)
+      // NOTE we use Date rather than Temporal.Now.zonedDateTime here so that our testing monkey patches work properly
+      let instant = Temporal.Instant.fromEpochMilliseconds(Date.now())
+      let now = instant.toZonedDateTimeISO('UTC')
+      now = now.subtract(duration)
+      expires_after = new Date(now.epochMilliseconds)
+    }
+
 
     const headers = {...this.default_headers}
-    for (const [name, value] of Object.entries(fetch_options?.headers ?? {})) {
+    const headers_iterable =
+      fetch_options?.headers instanceof Headers
+        ? fetch_options.headers.entries()
+        : fetch_options?.headers !== undefined
+          ? Object.entries(fetch_options.headers)
+          : []
+    for (const [name, value] of headers_iterable) {
       headers[name] = value
     }
 
-    const request = { url, headers, body: fetch_options?.body }
-    const serialized_request = JSON.stringify(request)
+    const request_record = { url, headers: {} as typeof headers, body: fetch_options?.body }
+    for (const [header_name, header_value] of Object.entries(headers)) {
+      if (grob_options.ignore?.headers?.includes(header_name)) continue
+      request_record.headers[header_name] = header_value
+    }
+    const serialized_request = JSON.stringify(request_record)
+    const request = new Request(url, { ...fetch_options, headers, body: fetch_options?.body })
 
     if (cache) {
-      const persistent_response = this.db.select_request(request)
+      const runtime_cache_response = this.runtime_cache.get(serialized_request)
+      if (runtime_cache_response) {
+        const grob_response = await runtime_cache_response
+        this.stats.cache.total_bytes += grob_response.content_length()
+        this.stats.cache.count++
+        return grob_response
+      }
+
+      const persistent_response = this.db.select_request(request_record, {expires_after})
       if (persistent_response) {
-        this.stats.cache_count++
+        this.stats.cache.total_bytes += persistent_response.content_length()
+        this.stats.cache.count++
+        this.validate_response(grob_options, request, persistent_response)
         return persistent_response
       }
-
-      if (this.runtime_cache.has(serialized_request)) {
-        return await this.runtime_cache.get(serialized_request)!
-      }
     }
 
-    const fetch_promise = this.queue.enqueue(() => fetch(url, { headers, body: request.body }))
+    const fetch_promise = this.queue.enqueue(async () => {
+      const response = await fetch(request)
+      // console.log(`Request: ${request.url}`)
+      // console.log(`Request query params:`)
+      //     const queryparams = new URL(request.url).searchParams
+      //     for (const [name, value] of queryparams.entries()) {
+      //       console.log(`  ${name}: ${value}`)
+      //     }
+
+      // console.log(`Response headers:`)
+      // for (const [name, value] of response.headers.entries()) {
+      //   console.log(`  ${name}: ${value}`)
+      // }
+      // console.log()
+
+      let response_length = 0
+      let response_body: string | undefined
+      let response_body_filepath: string | undefined
+      if (read && write) {
+        throw new Error('unimplemented')
+      } if (read) {
+        response_body = await response.text()
+        response_length = this.text_encoder.encode(response_body).length
+      } else if (write) {
+        response_body_filepath = write
+        if (!response.body) throw new Error('unexpected response: cannot write file from a null Response::body')
+        response_length = await this.write_file(response.body, response_body_filepath)
+      }
+
+      if (cache)  {
+        this.db.insert_response(request_record, response.status, response.headers, response_body, response_body_filepath, { expires_on })
+      }
+
+      // we validate _after_ writing to the cache intentionally because we may want to inspect unexpected requests
+      // if we want to reject invalid requests and retry for transient reasons, that will have to rely on the @retry feature.
+      this.validate_response(grob_options, request, response)
+
+      const grob_response = new GrobResponse(response_body, response)
+      this.stats.fetch.total_bytes += response_length
+      grob_response.filepath = response_body_filepath
+      return grob_response
+    })
+      .finally(() => {
+        if (cache) {
+          this.runtime_cache.delete(serialized_request)
+        }
+      })
+
+    this.stats.fetch.count++
     this.runtime_cache.set(serialized_request, fetch_promise)
 
-    this.stats.fetch_count++
-    const response = await fetch_promise
+    // // TODO attach cache/fetch stats to GrobResponse. This will become important when we have multiple scoped grobs built off the same grob base
+    // // we still want them to share the same queue so this is how we will track stats differently
+    const result = await fetch_promise
+    return result
+  }
 
-    const response_headers = response.headers
-    let response_body
-    let response_body_filepath: string | undefined = undefined
-    if (read && write) {
-      throw new Error('unimplemented')
-    } if (read) {
-      response_body = await response.text()
-    } else if (write) {
-      response_body_filepath = write
-      const response_body_folder = path.dirname(response_body_filepath)
-      const response_body_folder_temp = path.join(this.files_temp_folder, crypto.randomUUID())
-      const response_body_filepath_temp = path.join(response_body_folder_temp, path.basename(response_body_filepath) + '.down')
-      await Deno.mkdir(response_body_folder_temp)
-      // we _may_ error here on a file name clash, but thats more of a user error than anything
-      const file = await Deno.open(response_body_filepath_temp, { write: true, createNew: true })
-      await response.body?.pipeTo(file.writable)
-      await Deno.mkdir(response_body_folder, { recursive: true })
-      await Deno.rename(response_body_folder_temp, response_body_folder)
-      await Deno.rename(path.join(response_body_folder, path.basename(response_body_filepath_temp)), response_body_filepath)
+  private async write_file(data_stream: ReadableStream<Uint8Array>, dest_filepath: string) {
+    const dest_folder = path.dirname(dest_filepath)
+    const dest_folder_temp = path.join(this.files_temp_folder, crypto.randomUUID())
+    const dest_filepath_temp = path.join(dest_folder_temp, path.basename(dest_filepath) + '.down')
+    await Deno.mkdir(dest_folder_temp)
+    // we _may_ error here on a file name clash, but thats more of a user error than anything
+    const file = await Deno.open(dest_filepath_temp, { write: true, createNew: true })
+
+    let byte_count = 0
+    const byte_counter_stream = new TransformStream<Uint8Array, Uint8Array>({
+      start() {},
+      transform(chunk, controller) {
+        byte_count += chunk.byteLength
+        controller.enqueue(chunk)
+      }
+    })
+    await data_stream.pipeThrough(byte_counter_stream).pipeTo(file.writable)
+    // await data_stream.pipeTo(file.writable)
+    await Deno.mkdir(dest_folder, { recursive: true })
+    await Deno.rename(dest_folder_temp, dest_folder)
+    await Deno.rename(path.join(dest_folder, path.basename(dest_filepath_temp)), dest_filepath)
+    return byte_count
+  }
+
+  private validate_response(grob_options: GrobOptions, request: Request, response: Response): Response {
+    if (grob_options.validate?.status) {
+      if (!grob_options.validate.status.includes(response.status)) {
+        throw new HttpError(request, response, `request ${request.url} failed. Response status ${response.status} not in expected statuses: [${grob_options.validate.status}]`)
+      }
     }
+    return response
+  }
 
-    if (cache)  {
-      this.db.insert_response(request, response_headers, response_body, response_body_filepath, { expires_on })
-      this.runtime_cache.delete(serialized_request)
-    }
-
-    const grob_response = new GrobResponse(response_body, response)
-    grob_response.filepath = write
-    return grob_response
+  [Symbol.dispose]() {
+    this.close()
   }
 }
 
-export { Grob, GrobResponse }
+export { Grob, GrobResponse, HttpError }

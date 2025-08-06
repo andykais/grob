@@ -1,4 +1,4 @@
-import { PromiseController } from "./promise_controller.ts";
+import { path } from "./deps.ts";
 import { CompiledGrobber } from "./registry.ts";
 import * as worker from './worker.ts'
 
@@ -6,38 +6,59 @@ const accept_fetch_symbol = Symbol.for('accept_fetch')
 
 interface WorkerControllerOptions {
   [accept_fetch_symbol]?: boolean
+  vars?: Record<string, string>
 }
 
 class InvalidPermissions extends Error {}
 
 class WorkerController {
   worker: Worker
-  worker_complete_controller: PromiseController<void>
+  worker_booted_controller: PromiseWithResolvers<void>
+  worker_complete_controller: PromiseWithResolvers<void>
   grobber: CompiledGrobber
   download_folder: string
+  database_folder: string
   accept_fetch: boolean
 
-  public constructor(download_folder: string, grobber: CompiledGrobber, options?: WorkerControllerOptions) {
+  public constructor(download_folder: string, database_folder: string, grobber: CompiledGrobber, options?: WorkerControllerOptions) {
     this.accept_fetch = options?.[accept_fetch_symbol] ?? false
     this.download_folder = download_folder
+    this.database_folder = database_folder
     this.grobber = grobber
+    const permissions: Deno.PermissionOptions = {
+      // download_folder must be an absolute path to work when this module is imported remotely
+
+      // note that we currently give this whole program read access to use things like the grob library locally. In reality, I don't know what the permissions will look like when someone imports grob from jsr inside a grob user
+      read: true,
+      write: [download_folder, database_folder],
+
+      // necessary for any imports (including top level imports) to work within a worker
+      import: true,
+    }
+    if (grobber.definition.permissions) {
+      // there is possibly a better pattern to explicitly say ANY network access is allowed
+      permissions.net = grobber.definition.permissions
+    } else {
+      permissions.net = 'inherit'
+    }
     this.worker = new Worker(new URL('./worker.ts', import.meta.url), {
       type: 'module',
       deno: {
-        permissions: {
-          // download_folder must be an absolute path to work when this module is imported remotely
-          read: [download_folder],
-          write: [download_folder],
-          net: grobber.definition.permissions,
-        }
+        permissions: permissions,
+        // permissions: {
+        //   read: [download_folder],
+        //   write: [download_folder],
+        //   net: grobber.definition.permissions,
+        // }
       }
     })
-    this.worker_complete_controller = new PromiseController()
+    this.worker_complete_controller = Promise.withResolvers()
+    this.worker_booted_controller = Promise.withResolvers()
     this.worker.onmessage = async (event: MessageEvent<worker.WorkerMessage>) => {
       try {
         await this.handle_worker_message(event.data)
       } catch (error) {
-        this.worker_complete_controller.reject(error)
+        this.worker_complete_controller.reject(error as Error)
         this.worker.terminate()
       }
     }
@@ -48,12 +69,22 @@ class WorkerController {
   }
 
   public async start(input: string) {
+    // we need the worker to set up its message listener before we start sending messages
+    await this.worker_booted_controller.promise
 
+    // TODO FIXME: this is a shim to be able to run the worker with back to back launches
+    // the real solution involves passing a `launch_id` along with every message,
+    // and tying a worker_complete_controller to a map of launch ids
+    this.worker_complete_controller = Promise.withResolvers()
+
+    const sanitized_folder_name = input.replaceAll('/', '_')
+    const input_download_folder = path.join(this.download_folder, sanitized_folder_name)
     const launch_message: worker.MasterMessageLaunch = {
       command: 'launch',
       fetch_piping: this.accept_fetch,
       grobber_definition: this.grobber.definition,
-      grobber_folder: this.download_folder,
+      database_folder: this.database_folder,
+      grobber_folder: input_download_folder,
       grobber_name: this.grobber.definition.name,
       main_filepath: this.grobber.main_filepath,
       input,
@@ -61,11 +92,17 @@ class WorkerController {
     this.send_message(launch_message)
 
     await this.worker_complete_controller.promise
-    this.worker.terminate()
   }
 
-  public stop() {
-    throw new Error('unimplemented')
+  public async stop() {
+    this.send_message({ command: 'shutdown' })
+    // lets give it 100ms to shutdown gracefully
+    return new Promise<void>(resolve => {
+      setTimeout(() => {
+        this.worker.terminate()
+        resolve()
+      }, 100)
+    })
   }
 
   private send_message(message: worker.MasterMessage) {
@@ -74,6 +111,9 @@ class WorkerController {
 
   private handle_worker_message = async (message: worker.WorkerMessage) => {
     switch(message.command) {
+      case 'booted': {
+        this.worker_booted_controller.resolve()
+      }
       case 'complete': {
         this.worker_complete_controller.resolve()
         break

@@ -1,6 +1,3 @@
-import { PromiseController } from './promise_controller.ts'
-
-
 interface RateLimitQueueConfig {
   rate_per_second?: number
   concurrent_limit?: number
@@ -14,7 +11,7 @@ type Task<T> = () => Promise<T>
 
 interface TaskObject<T> {
   task: Task<T>
-  promise_controller: PromiseController<T>
+  promise_controller: PromiseWithResolvers<T>
   task_index: number
 }
 
@@ -51,6 +48,7 @@ class RateLimitQueue<T> {
   }
 
   public close() {
+    // console.log('Queue::close')
     if (this.queue.length) {
       throw new Error(`queue was stopped with ${this.queue.length} remaining tasks`)
     }
@@ -59,7 +57,7 @@ class RateLimitQueue<T> {
 
   public async enqueue(task: Task<T>): Promise<T> {
     const task_index = this.enqueued_task_count ++
-    const promise_controller = new PromiseController<T>()
+    const promise_controller = Promise.withResolvers<T>()
     const task_object = {
       promise_controller,
       task,
@@ -74,6 +72,7 @@ class RateLimitQueue<T> {
   private schedule = () => {
     if (this.queue.length === 0) return
 
+    // console.log('Queue::schedule queue.length', this.queue.length)
     const current_second = this.current_second()
 
     const acceptable_concurrency = this.active_tasks < this.concurrent_limit
@@ -88,6 +87,7 @@ class RateLimitQueue<T> {
       } else {
         this.last_enqueue = { rate: 1, second: current_second }
       }
+      // console.log('Queue::schedule task()')
       task()
         .then(v => {
           this.active_tasks --

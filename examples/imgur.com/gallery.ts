@@ -1,23 +1,28 @@
-import * as path from 'https://deno.land/std@0.192.0/path/mod.ts'
-import { Grob } from 'https://deno.land/x/grob/mod.ts'
+import * as path from '@std/path'
+import { Grob, Grobber } from '../../mod.ts'
 
 
-export default async function(grob: Grob, input: string) {
-  const gallery_page = await grob.fetch_html(input)
-  const script_content = gallery_page.select_one("script:contains('postDataJSON')")?.text()
-    .replace('window.postDataJSON=', '')
-    .replace(/^"/, '')
-    .replace(/"$/, '')
-    .replace(/\\"/g, '"')
-    .replace(/\\\"/g, '\"')
-    .replace(/\\'/g, `'`)
+export const grobber = new Grobber()
+grobber.register({
+  match: /.*/,
 
-  if (!script_content) throw new Error('could not find gallery data')
-  const gallery_data = JSON.parse(script_content)
+  fn: async function(grob: Grob, input: string) {
+    const gallery_page = await grob.fetch_html(input)
+    const script_content = gallery_page.select_one("script:contains('postDataJSON')")?.text()
+      .replace('window.postDataJSON=', '')
+      .replace(/^"/, '')
+      .replace(/"$/, '')
+      .replace(/\\"/g, '"')
+      .replace(/\\\"/g, '\"')
+      .replace(/\\'/g, `'`)
 
-  await Deno.writeTextFile(path.join(grob.download_folder, 'gallery_data.json'), JSON.stringify(gallery_data))
+    if (!script_content) throw new Error('could not find gallery data')
+    const gallery_data = JSON.parse(script_content)
 
-  for (const media of gallery_data.media) {
-    const filepath = await grob.fetch_file(media.url)
+    await Deno.writeTextFile(path.join(grob.download_folder, 'gallery_data.json'), JSON.stringify(gallery_data))
+
+    for (const media of gallery_data.media) {
+      const filepath = await grob.fetch_file(media.url)
+    }
   }
-}
+})

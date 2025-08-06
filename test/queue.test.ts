@@ -1,5 +1,4 @@
 import { Grob } from '../mod.ts'
-import { PromiseController } from './tools/promise_controller.ts'
 import { test } from './tools/test.ts'
 
 const timeout = (millis: number) => new Promise(resolve => setTimeout(resolve, millis))
@@ -10,9 +9,9 @@ test('queue concurrent limit', async t => {
     throttle: { concurrent_limit: 2 }
   })
 
-  const fetch_controller_1 = new PromiseController<Response>()
-  const fetch_controller_2 = new PromiseController<Response>()
-  const fetch_controller_3 = new PromiseController<Response>()
+  const fetch_controller_1 = Promise.withResolvers<Response>()
+  const fetch_controller_2 = Promise.withResolvers<Response>()
+  const fetch_controller_3 = Promise.withResolvers<Response>()
 
   const fetch_1 = t.assert.fetch({request: {}, response: fetch_controller_1.promise })
   const fetch_2 = t.assert.fetch({request: {}, response: fetch_controller_2.promise })

@@ -1,15 +1,14 @@
-import { PromiseController } from './promise_controller.ts'
 import { path, yaml, z } from './deps.ts'
 import { Grob } from './grob.ts'
 import { type RateLimitQueueConfig } from './queue.ts'
 import * as worker from './worker.ts'
 import { WorkerController, type WorkerControllerOptions } from './worker_controller.ts'
 import * as input from './input.ts'
+import type { Grobber } from './grobber.ts'
 
 type InputTypes = { [K in keyof typeof input]: z.infer<(typeof input)[K]> }
 
-type GrobEntrypoint = (grob: Grob, input: string) => Promise<void>
-
+type GrobMain = InputTypes['GrobMain']
 type GrobberDefinition = InputTypes['GrobberDefinition']
 
 interface GrobberRegistryConfig {
@@ -20,7 +19,8 @@ interface CompiledGrobber {
   registration_identifier: string
   definition: InputTypes['GrobberDefinition']
   main_filepath: InputTypes['Filepath']
-  main: GrobEntrypoint
+  main: GrobMain
+  worker_controller?: WorkerController
 }
 
 type PersistentRegistry = Record<InputTypes['GrobName'], {
@@ -75,10 +75,10 @@ class GrobberRegistry {
     }
 
 
-    let program: GrobEntrypoint
+    let program: GrobMain
     if (this.is_valid_url(grobber_definition.main)) {
       grobber_program_source = await this.registry_grob.fetch_file(grobber_definition.main)
-      program = (await import(grobber_program_source)).default as GrobEntrypoint
+      program = (await import(grobber_program_source))
     } else {
       if (registration_type === 'url') {
         const registration_url = new URL(registration as string)
@@ -87,17 +87,24 @@ class GrobberRegistry {
         let resolved_url = registration_url.origin + resolved_path
         // a testing flag that adds a unique query param to the dependency to force a cache reload
         if (this.force_dynamic_import_cache_reload) resolved_url += `?reload=${Date.now()}`
-        program = (await import(resolved_url)).default
+        program = (await import(resolved_url))
         grobber_program_source = resolved_url
       } else if (registration_type === 'filepath') {
         // a filepath here must be relative to the grob.yml folder
         const definition_folder = path.dirname(registration as string)
         const parent_folder = path.isAbsolute(definition_folder) ? definition_folder : path.join(Deno.cwd(), definition_folder)
         grobber_program_source = `file://${path.join(parent_folder, grobber_definition.main)}`
-        program = (await import(grobber_program_source)).default as GrobEntrypoint
+        program = (await import(grobber_program_source))
       } else {
         throw new Error(`unexpected registration type ${registration_type}`)
       }
+    }
+
+    // validate grobber program
+    try {
+      input.GrobMain.parse(program)
+    } catch (e) {
+      throw new Error(`Invalid grobber ${grobber_definition.name}:`, { cause: e })
     }
 
     this.registry.set(grobber_definition.name, {
@@ -123,15 +130,19 @@ class GrobberRegistry {
 
   public async start(input: string, options?: WorkerControllerOptions) {
     for (const grobber of this.registry.values()) {
-      const matched_input = input.match(new RegExp(grobber.definition.match))?.[0]
+      const matched_input = grobber.main.grobber.match(input)
       if (matched_input) {
-        return this.launch_grobber(matched_input, grobber, options)
+        const vars = {...options?.vars, ...matched_input.vars}
+        return this.launch_grobber(input, grobber, {...options, vars})
       }
     }
     throw new Error(`No grob.yml found for input '${input}'`)
   }
 
-  public close() {
+  public async close() {
+    for (const grobber of this.registry.values()) {
+      await grobber.worker_controller?.stop()
+    }
     this.registry_grob.close()
   }
 
@@ -146,20 +157,28 @@ class GrobberRegistry {
   }
 
   private async launch_grobber(input: string, grobber: CompiledGrobber, options: WorkerControllerOptions | undefined) {
-    const sanitized_folder_name = input.replaceAll('/', '_')
-
     const download_folder = grobber.definition.folder
       ? path.join(this.download_folder, grobber.definition.name, grobber.definition.folder)
-      : path.join(this.download_folder, grobber.definition.name, sanitized_folder_name)
+      : path.join(this.download_folder, grobber.definition.name)
 
-    await Deno.mkdir(download_folder, { recursive: true })
-    const worker_controller = new WorkerController(download_folder, grobber, options)
+    const database_folder = grobber.definition.folder
+      ? path.join(this.download_folder, grobber.definition.name, grobber.definition.folder)
+      : path.join(this.download_folder, grobber.definition.name)
 
-    return worker_controller.start(input)
+    if (!grobber.worker_controller) {
+      await Deno.mkdir(download_folder, { recursive: true })
+      grobber.worker_controller = new WorkerController(download_folder, database_folder, grobber, options)
+    }
 
+    return grobber.worker_controller.start(input)
+  }
+
+
+  async [Symbol.asyncDispose]() {
+    await this.close()
   }
 }
 
 
 export { GrobberRegistry }
-export type { GrobberRegistryConfig, GrobberDefinition, CompiledGrobber }
+export type { GrobberRegistryConfig, GrobberDefinition, CompiledGrobber, GrobMain }

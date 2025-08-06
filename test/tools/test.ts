@@ -3,8 +3,8 @@ import { FetchMock, FetchMockNotFound } from './fetch_mock.ts'
 
 const __dirname = path.dirname(path.dirname(path.fromFileUrl(import.meta.url)))
 
-function assert_fetch_mock_not_found(grob_fn: () => Promise<any>) {
-  assert.assertRejects(grob_fn, FetchMockNotFound)
+async function assert_fetch_mock_not_found(grob_fn: () => Promise<any>) {
+  await assert.assertRejects(grob_fn, FetchMockNotFound)
 }
 
 async function assert_file_contents(filepath: string, expected_content: string) {
@@ -18,6 +18,7 @@ interface Asserts {
   fetch_mock_not_found: typeof assert_fetch_mock_not_found
   rejects: typeof assert.assertRejects
   equals: typeof assert.assertEquals
+  not_equals: typeof assert.assertNotEquals
   file_contents: typeof assert_file_contents
 }
 
@@ -79,6 +80,7 @@ function test(test_name: string, fn: TestFunction, options?: TestOptions) {
         fetch_mock_not_found: assert_fetch_mock_not_found,
         rejects: assert.assertRejects,
         equals: assert.assertEquals,
+        not_equals: assert.assertNotEquals,
         file_contents: assert_file_contents,
       }
     }
@@ -113,4 +115,4 @@ function test(test_name: string, fn: TestFunction, options?: TestOptions) {
 test.only = (test_name: string, fn: TestFunction) => test(test_name, fn, { only: true })
 test.skip = (test_name: string, fn: TestFunction) => test(test_name, fn, { ignore: true })
 
-export { test }
+export { test, FetchMockNotFound }

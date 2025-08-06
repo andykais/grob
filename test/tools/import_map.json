@@ -1,5 +1,18 @@
 {
   "imports": {
-    "https://deno.land/x/grob/mod.ts": "../../mod.ts"
+    "https://deno.land/x/grob/mod.ts": "/home/andrew/Code/development/grob/mod.ts",
+
+    "@std/datetime": "jsr:@std/datetime@^0.225.3",
+    "@std/fs": "jsr:@std/fs@^1.0.9",
+    "@std/http": "jsr:@std/http@^1.0.12",
+    "@std/path": "jsr:@std/path@^1.0.8",
+    "@std/yaml": "jsr:@std/yaml@^1.0.5",
+    "css-select": "npm:css-select@^5.1.0",
+    "dom-serializer": "npm:dom-serializer@^2.0.0",
+    "domhandler": "npm:domhandler@^5.0.3",
+    "domutils": "npm:domutils@^3.2.2",
+    "html-parser2": "npm:html-parser2@^1.0.2",
+    "https://deno.land/x/grob/mod.ts": "./mod.ts",
+    "zod": "npm:zod@^3.24.1"
   }
 }

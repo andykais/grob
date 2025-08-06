@@ -1,0 +1,10 @@
+name: artstation.com
+
+permissions:
+- "artstation.com"
+
+throttle:
+  rate_per_second: 2
+  concurrent_limit: 10
+
+main: "./main.ts"
